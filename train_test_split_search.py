@@ -17,7 +17,9 @@ for dataset in datasets:
     # load hyper_parameters from pickle file creatd by `hyper_param_search.py`
     # - molenet params: dataset + model + '.pkl'
     # - hyper param search:  dataset + '_' + model + '_hyper_parameters.pkl'
-    hyper_parameters = pickle.load(os.path.join('.', 'pickle', dataset + model + '.pkl'))
+    
+    with open(os.path.join('.', 'pickle', dataset + model + '.pkl'), 'w') as f:
+        hyper_parameters = pickle.load(f)
     for frac in fracs:
       run_train_test_benchmark(datasets=[dataset],
                                split='random', 
