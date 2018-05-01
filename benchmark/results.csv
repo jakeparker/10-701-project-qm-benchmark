@@ -1,1 +1,1 @@
-dataset, split, mode, model, frac_train, i, train_score, test_score, running_time
+dataset,split,mode,model,frac,score_type,train_score,test_score,runtime

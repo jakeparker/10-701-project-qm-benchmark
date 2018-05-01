@@ -99,10 +99,16 @@ def run_train_test_benchmark(datasets,
     with open(os.path.join(out_path, 'results.csv'), 'a') as f:
       writer = csv.writer(f)
       model_name = list(train_score.keys())[0]
-      for i in train_score[model_name]:
+      for score_type in train_score[model_name]:
         output_line = [
             dataset,
-            str(split), mode, model_name, str(frac_train), i, train_score[model_name][i], test_score[model_name][i]
+            str(split),
+            mode, 
+            model_name, 
+            str(frac_train), 
+            score_type, 
+            train_score[model_name][score_type], 
+            test_score[model_name][score_type]
         ]
         output_line.extend(
             [time_finish_fitting - time_start_fitting])
