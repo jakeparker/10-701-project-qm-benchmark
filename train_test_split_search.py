@@ -10,7 +10,7 @@ tf.set_random_seed(123)
 
 datasets = ['qm7', 'qm7b', 'qm8', 'qm9']
 models = ['rf_regression', 'krr', 'graphconvreg', 'weave_regression']
-fracs = range(0.1, 0.8, 0.1)
+fracs = [float(x+1)/10 for x in range(8)]
 
 for dataset in datasets:
   for model in models:
