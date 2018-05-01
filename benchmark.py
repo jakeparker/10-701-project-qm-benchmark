@@ -215,7 +215,7 @@ def run_benchmark(datasets,
     time_finish_fitting = time.time()
 
     if hyper_param_search:
-      with open(os.path.join(out_path, dataset + '_' + model + '_hyper_parameters.pkl'), 'w') as f:
+      with open(os.path.join(out_path, dataset + model + '.pkl'), 'wb') as f:
         pickle.dump(hyper_parameters, f)
 
 
