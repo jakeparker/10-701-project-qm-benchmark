@@ -67,13 +67,13 @@ def run_train_test_benchmark(datasets,
     # loading datasets
     if split is not None:
       print('Splitting function: %s' % split)
-      tasks, train_test_dataset, transformers = loading_functions[dataset](
+      tasks, all_dataset, transformers = loading_functions[dataset](
           featurizer=featurizer, split=split, frac_train=frac_train, reload=reload)
     else:
-      tasks, train_test_dataset, transformers = loading_functions[dataset](
+      tasks, all_dataset, transformers = loading_functions[dataset](
           featurizer=featurizer, frac_train=frac_train, reload=reload)
 
-    train_dataset, test_dataset = train_test_dataset
+    train_dataset, test_dataset = all_dataset
 
     time_start_fitting = time.time()
     train_score = {}
@@ -96,16 +96,14 @@ def run_train_test_benchmark(datasets,
 
     time_finish_fitting = time.time()
 
-    with open(os.path.join(out_path, dataset + '_' + model + '_' + str(frac_train) + '_results.csv'), 'a') as f:
+    with open(os.path.join(out_path, 'results.csv'), 'a') as f:
       writer = csv.writer(f)
       model_name = list(train_score.keys())[0]
       for i in train_score[model_name]:
         output_line = [
             dataset,
-            str(split), mode, model_name, i, 'train',
-            train_score[model_name][i]
+            str(split), mode, model_name, str(frac_train), i, train_score[model_name][i], test_score[model_name][i]
         ]
-        output_line.extend(['test', test_score[model_name][i]])
         output_line.extend(
-            ['time_for_running', time_finish_fitting - time_start_fitting])
+            [time_finish_fitting - time_start_fitting])
         writer.writerow(output_line)

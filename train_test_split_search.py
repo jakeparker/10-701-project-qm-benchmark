@@ -27,4 +27,4 @@ for dataset in datasets:
                                model=model, 
                                out_path=os.path.join('.', 'benchmark'),
                                hyper_parameters=hyper_parameters,
-                               reload=True)
+                               reload=False)
