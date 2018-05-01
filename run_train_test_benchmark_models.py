@@ -93,7 +93,7 @@ def train_test_benchmark_regression(train_dataset,
     n_filters = hyper_parameters['n_filters']
     n_fully_connected_nodes = hyper_parameters['n_fully_connected_nodes']
 
-    model = deepchem.models.GraphConvModel(
+    model = deepchem.models.GraphConvTensorGraph(
         len(tasks),
         graph_conv_layers=[n_filters] * 2,
         dense_layer_size=n_fully_connected_nodes,
@@ -110,7 +110,7 @@ def train_test_benchmark_regression(train_dataset,
     n_distance = hyper_parameters['n_distance']
     assert len(n_features) == 2, 'DTNN is only applicable to qm datasets'
 
-    model = deepchem.models.DTNNModel(
+    model = deepchem.models.DTNNTensorGraph(
         len(tasks),
         n_embedding=n_embedding,
         n_distance=n_distance,
@@ -140,7 +140,7 @@ def train_test_benchmark_regression(train_dataset,
     test_dataset.reshard(reshard_size)
     test_dataset = transformer.transform(test_dataset)
 
-    model = deepchem.models.DAGModel(
+    model = deepchem.models.DAGTensorGraph(
         len(tasks),
         max_atoms=max_atoms,
         n_atom_feat=n_features,
@@ -159,7 +159,7 @@ def train_test_benchmark_regression(train_dataset,
     n_graph_feat = hyper_parameters['n_graph_feat']
     n_pair_feat = hyper_parameters['n_pair_feat']
 
-    model = deepchem.models.WeaveModel(
+    model = deepchem.models.WeaveTensorGraph(
         len(tasks),
         n_atom_feat=n_features,
         n_pair_feat=n_pair_feat,
@@ -179,10 +179,10 @@ def train_test_benchmark_regression(train_dataset,
     filter_sizes = hyper_parameters['filter_sizes']
     num_filters = hyper_parameters['num_filters']
 
-    char_dict, length = deepchem.models.TextCNNModel.build_char_dict(
+    char_dict, length = deepchem.models.TextCNNTensorGraph.build_char_dict(
         train_dataset)
 
-    model = deepchem.models.TextCNNModel(
+    model = deepchem.models.TextCNNTensorGraph(
         len(tasks),
         char_dict,
         seq_length=length,
@@ -240,7 +240,7 @@ def train_test_benchmark_regression(train_dataset,
     T = hyper_parameters['T']
     M = hyper_parameters['M']
 
-    model = deepchem.models.MPNNModel(
+    model = deepchem.models.MPNNTensorGraph(
         len(tasks),
         n_atom_feat=n_features[0],
         n_pair_feat=n_features[1],
