@@ -18,19 +18,19 @@ from qm9_datasets import load_qm9
 from run_train_test_benchmark_models import train_test_benchmark_regression
 
 def run_train_test_benchmark(datasets,
-                         model,
-                         split=None,
-                         frac_train=0.8,
-                         metric=None,
-                         featurizer=None,
-                         n_features=0,
-                         out_path='.',
-                         hyper_parameters=None,
-                         reload=True,
-                         seed=123):
-"""
-"""
-for dataset in datasets:
+                             model,
+                             split=None,
+                             frac_train=0.8,
+                             metric=None,
+                             featurizer=None,
+                             n_features=0,
+                             out_path='.',
+                             hyper_parameters=None,
+                             reload=True,
+                             seed=123):
+  """
+  """
+  for dataset in datasets:
     if dataset in [
         'qm7', 'qm7b', 'qm8', 'qm9'
     ]:
@@ -80,9 +80,9 @@ for dataset in datasets:
     test_score = {}
 
     if hyper_parameters is None:
-        hyper_parameters = hps[model]
+      hyper_parameters = hps[model]
     if isinstance(model, str):
-        if mode == 'regression':
+      if mode == 'regression':
         train_score, test_score = train_test_benchmark_regression(
             train_dataset,
             test_dataset,
