@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import tensorflow as tf
 import deepchem as dc
+from deepchem.metrics import Metric, mae_score
 from deepchem.molnet.preset_hyper_parameters import hps
 from train_test_benchmark import run_train_test_benchmark
 
@@ -23,14 +24,14 @@ for dataset in datasets:
     except:
       hyper_parameters = hps[model]
     for featurizer in featurizers:
-      for task in tasks[model]:
+      for task in tasks[dataset]:
         for frac in fracs:
           run_train_test_benchmark([dataset],
                                    model,
                                    task,
                                    split='random', 
                                    frac_train=frac,
-                                   metric=[deepchem.metrics.Metric(deepchem.metrics.mae_score, task_averager=np.mean)],
+                                   metric=[Metric(mae_score, task_averager=np.mean)],
                                    featurizer=featurizer,
                                    out_path=os.path.join('.', 'benchmark'),
                                    hyper_parameters=hyper_parameters,

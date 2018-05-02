@@ -19,7 +19,7 @@ from run_train_test_benchmark_models import train_test_benchmark_regression
 
 def run_train_test_benchmark(datasets,
                              model,
-                             task
+                             task,
                              split=None,
                              frac_train=0.8,
                              metric=None,
