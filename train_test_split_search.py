@@ -28,6 +28,7 @@ for dataset in datasets:
       run_train_test_benchmark(datasets=[dataset],
                                split='random', 
                                frac_train=frac,
+                               metric=[deepchem.metrics.Metric(deepchem.metrics.mae_score)],
                                model=model, 
                                out_path=os.path.join('.', 'benchmark'),
                                hyper_parameters=hyper_parameters,
