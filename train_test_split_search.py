@@ -3,33 +3,37 @@ import pickle
 import numpy as np
 import tensorflow as tf
 import deepchem as dc
+from deepchem.metrics import Metric, mae_score
 from deepchem.molnet.preset_hyper_parameters import hps
 from train_test_benchmark import run_train_test_benchmark
 
 np.random.seed(123)
 tf.set_random_seed(123)
 
-datasets = ['qm7b', 'qm8', 'qm9'] # 'qm7'
-models = ['rf_regression', 'krr', 'graphconvreg', 'weave_regression']
+datasets = ['qm7', 'qm7b', 'qm9']
+tasks = dict({'qm7': ['u0_atom'], 'qm7b': [3, 4], 'qm9': ['homo', 'lumo']})
+featurizers = ['ECFP', 'CoulombMatrix', 'GraphConv', 'Weave'] 
+models = ['rf_regression', 'krr', 'graphconvreg', 'weave_regression', 'dtnn', 'mpnn']
 fracs = [float(x+1)/10 for x in range(8)]
 
 for dataset in datasets:
   for model in models:
-    # load hyper_parameters from pickle file creatd by `hyper_param_search.py`
-    # - molenet params: dataset + model + '.pkl'
-    # - hyper param search:  dataset + '_' + model + '_hyper_parameters.pkl'
-    
     try:    
-        with open(os.path.join('.', 'pickle', dataset + model + '.pkl'), 'rb') as f:
-            hyper_parameters = pickle.load(f)
+      with open(os.path.join('.', 'pickle', dataset + model + '.pkl'), 'rb') as f:
+        hyper_parameters = pickle.load(f)
     except:
-        hyper_parameters = hps[model]
-    for frac in fracs:
-      run_train_test_benchmark(datasets=[dataset],
-                               split='random', 
-                               frac_train=frac,
-                               metric=[deepchem.metrics.Metric(deepchem.metrics.mae_score)],
-                               model=model, 
-                               out_path=os.path.join('.', 'benchmark'),
-                               hyper_parameters=hyper_parameters,
-                               reload=False)
+      hyper_parameters = hps[model]
+    for featurizer in featurizers:
+      for task in tasks[dataset]:
+        for frac in fracs:
+          run_train_test_benchmark([dataset],
+                                   model,
+                                   task,
+                                   split='random', 
+                                   frac_train=frac,
+                                   metric=[Metric(mae_score, task_averager=np.mean)],
+                                   featurizer=featurizer,
+                                   out_path=os.path.join('.', 'benchmark'),
+                                   hyper_parameters=hyper_parameters,
+                                   reload=False,
+                                   seed=123)
