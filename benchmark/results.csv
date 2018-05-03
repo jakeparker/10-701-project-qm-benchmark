@@ -1,1 +1,11 @@
 dataset,split,mode,model,frac,task,featurizer,score_type,train_score,test_score,runtime
+qm9,random,regression,rf_regression,0.1,task,featurizer,mean-mae_score,0.0034276269368624366,0.009297504058645798,620.3679065704346
+qm9,random,regression,rf_regression,0.2,task,featurizer,mean-mae_score,0.0030736804888997966,0.008375845082906602,1524.2372415065765
+qm9,random,regression,rf_regression,0.3,task,featurizer,mean-mae_score,0.0028803564851235045,0.0077642782564406945,2616.7177968025208
+qm9,random,regression,rf_regression,0.4,task,featurizer,mean-mae_score,0.0027231187412948797,0.007409388128029968,3557.7284018993378
+qm9,random,regression,rf_regression,0.5,task,featurizer,mean-mae_score,0.0026469282669993343,0.007129498795635518,4825.309878349304
+qm9,random,regression,rf_regression,0.6,task,featurizer,mean-mae_score,0.0025652787275836026,0.006879472559070049,6031.752587795258
+qm9,random,regression,rf_regression,0.7,task,featurizer,mean-mae_score,0.0024841096554183723,0.006755795702609197,7358.04591178894
+qm9,random,regression,rf_regression,0.8,task,featurizer,mean-mae_score,0.002424334054196554,0.0065713418806931795,8577.777512311935
+qm9,random,regression,krr,0.1,task,featurizer,mean-mae_score,0.006644266183134961,0.010026078444453862,325.7027645111084
+qm9,random,regression,krr,0.2,task,featurizer,mean-mae_score,0.006211668225173352,0.008791993057498707,894.825085401535
