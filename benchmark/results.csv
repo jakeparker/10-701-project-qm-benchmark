@@ -1,3 +1,5 @@
 dataset,featurizer,mode,method,model,task,split,frac_train,frac_valid,frac_test,metric,train_score,valid_score,test_score,runtime
-qm9,GraphConv,regression,graph,graphconvreg,homo,Random,0.8,NA,0.19999999999999996,MAE,0.156827549830514,NA,0.18531487980109354,1637.0954339504242
-qm9,Weave,regression,graph,weave_regression,homo,Random,0.8,NA,0.19999999999999996,MAE,0.004234810618740182,NA,0.00450250309110291,2953.3304929733276
+qm9,GraphConv,regression,graph,graphconvreg,homo,Random,0.8,NA,0.19999999999999996,mae_score,0.156827549830514,NA,0.18531487980109354,1637.0954339504242
+qm9,Weave,regression,graph,weave_regression,homo,Random,0.8,NA,0.19999999999999996,mae_score,0.004234810618740182,NA,0.00450250309110291,2953.3304929733276
+qm9,GraphConv,regression,graph,graphconvreg,lumo,Random,0.8,NA,0.19999999999999996,mae_score,0.08421712497474348,NA,0.0923580671247873,1867.7115795612335
+qm9,Weave,regression,graph,weave_regression,lumo,Random,0.8,NA,0.19999999999999996,mae_score,0.004344956896950237,NA,0.004631997987431439,4252.946144580841
