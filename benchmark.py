@@ -13,15 +13,54 @@ SEED = 123
 np.random.seed(SEED)
 tf.set_random_seed(SEED)
 
-
-def run_benchmark(data, model, tasks, metrics, transformers, n_features, 
-                  direction, hyper_parameters, hyper_parameter_search, max_iter, search_range,
-                  valid, test, out_path, reload, seed):
+def _benchmark_classification():
   pass
 
-  time_start_fitting = time.time()
+# rf_regression, krr, graphconvreg, weave_regression
+def _benchmark_regression(train_dataset,
+                         valid_dataset,
+                         test_dataset,
+                         tasks,
+                         transformers,
+                         n_features,
+                         metric,
+                         model,
+                         valid=True,
+                         test=False,
+                         hyper_parameters=None,
+                         seed=None):
+  from sklearn.ensemble import RandomForestRegressor
+  from sklearn.kernel_ridge import KernelRidge
+  pass
 
-  # ...
+
+def run_benchmark(data, model, mode, tasks, metrics, transformers, n_features, 
+                  direction, hyper_parameters, hyper_parameter_search, max_iter, search_range,
+                  valid, test, out_path, reload, seed):
+  time_start_fitting = time.time()
+  train_score = dict()
+  valid_score = dict()
+  test_score = dict()
+
+  if hyper_parameter_search:
+    if hyper_parameters is None:
+      hyper_parameters = deepchem.molnet.preset_hyper_parameters.hps[model]
+    pass
+  if mode == 'classification':
+    from deepchem.molnet.run_benchmark_models import benchmark_classification
+    train_score, valid_score, test_score = benchmark_classification()
+  elif mode == 'regression':
+    from deepchem.molnet.run_benchmark_models import benchmark_regression
+    train_score, valid_score, test_score = benchmark_regression(data['train'], # train
+                                                                data['test'],  # valid
+                                                                data['valid'], # test
+                                                                tasks,
+                                                                transformers,
+                                                                metric,
+                                                                model,
+                                                                test=False,
+                                                                hyper_parameters=hyper_parameters,
+                                                                seed=seed)
 
   time_finish_fitting = time.time()
   scores = dict({
@@ -42,7 +81,9 @@ def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func
     deepchem.utils.download_url(url)
   if file_type == '.mat':
     loader = scipy.io.loadmat(dataset_file)
-    if dataset == 'qm7':
+    if dataset == 'qm7' and featurizer == 'CoulombMatrix':
+      X = loader['X']
+    elif dataset == 'qm7' and featurizer == 'BPSymmetryFunction':
       X = np.concatenate([np.expand_dims(loader['Z'], 2), loader['R']], axis=2)
     else:
       X = loader['X']
@@ -66,7 +107,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
   """
   dataset,feature,mode,method,model,task,split,frac_train,frac_valid,frac_test,metric,train_score,valid_score,test_score,runtime
   """
-  if hyper_parameters_init != None:
+  if hyper_parameters_init is not None:
     assert(load_hyper_parameters == False)
     if all([isinstance(key, str) for key in hyper_parameters_init.keys()]):
       hyper_parameters_lookup = lambda dataset, model: hyper_parameters_init['model']
@@ -168,11 +209,11 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
             valid_set, test_set = None
             train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
           for transformer in transformers:
-            if train_set != None:
+            if train_set is not None:
               train_set = transformer.transform(train_set)
-            if valid_set != None:
+            if valid_set is not None:
               valid_set = transformer.transform(valid_set)
-            if test_set != None:
+            if test_set is not None:
               test_set =  transformer.transform(test_set)
           split_featurized_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
           if len(modes[dataset] == 0): 
@@ -181,12 +222,12 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
             for mode in modes[dataset]:
               for method in methods:
                 key = frozenset([featurizer, mode, method])
-                if models[key] == None:
+                if models[key] is None:
                   pass
                 else:
                   for model in models[key]:
                     n_features = features[frozenset([dataset, featurizer, model])]
-                    if tasks[dataset] == None:
+                    if tasks[dataset] is None:
                       pass
                     else:
                       hyper_parameters = hyper_parameters_lookup(dataset, model)
@@ -312,19 +353,19 @@ def main():
   methods = ['conventional', 'graph']
   models = dict({
     frozenset(['Raw', 'regression', 'conventional']): None,
-    frozenset(['Raw', 'regression', 'graph']): ['textcnn_regression'],
+    frozenset(['Raw', 'regression', 'graph']): None, # ['textcnn_regression'],
     frozenset(['Raw', 'coordinates', 'conventional']): None,
     frozenset(['Raw', 'coordinates', 'graph']): None,
     frozenset(['Raw', 'classification', 'conventional']): None,
     frozenset(['Raw', 'classification', 'graph']): None,
     frozenset(['ECFP', 'regression', 'conventional']): ['rf_regression', 'krr'],
-    frozenset(['ECFP', 'regression', 'graph']): ['tf_regression'],
+    frozenset(['ECFP', 'regression', 'graph']): None, # ['tf_regression'],
     frozenset(['ECFP', 'coordinates', 'conventional']): None,
     frozenset(['ECFP', 'coordinates', 'graph']): None,
     frozenset(['ECFP', 'classification', 'conventional']): None,
     frozenset(['ECFP', 'classification', 'graph']): None,
-    frozenset(['CoulombMatrix', 'regression', 'conventional']): ['krr_ft'],
-    frozenset(['CoulombMatrix', 'regression', 'graph']): ['tf_regression_ft', 'dtnn'],
+    frozenset(['CoulombMatrix', 'regression', 'conventional']): None, # ['krr_ft'],
+    frozenset(['CoulombMatrix', 'regression', 'graph']): None, # ['tf_regression_ft', 'dtnn'],
     frozenset(['CoulombMatrix', 'coordinates', 'conventional']): None,
     frozenset(['CoulombMatrix', 'coordinates', 'graph']): None,
     frozenset(['CoulombMatrix', 'classification', 'conventional']): None,
@@ -348,7 +389,7 @@ def main():
     frozenset(['MP', 'classification', 'conventional']): None,
     frozenset(['MP', 'classification', 'graph']): None,
     frozenset(['BPSymmetryFunction', 'regression', 'conventional']): None,
-    frozenset(['BPSymmetryFunction', 'regression', 'graph']): ['ani'],
+    frozenset(['BPSymmetryFunction', 'regression', 'graph']): None, # ['ani'],
     frozenset(['BPSymmetryFunction', 'coordinates', 'conventional']): None,
     frozenset(['BPSymmetryFunction', 'coordinates', 'graph']): None,
     frozenset(['BPSymmetryFunction', 'classification', 'conventional']): None,
@@ -430,36 +471,36 @@ def main():
     'metrics': metrics
   })
 
-  # load default molnet hyper_parameters,
-  # and evaluate on train and valid sets,
-  # using valid score to optimize hyper_parameters using a gaussian process.
-  #   - saving hyper_parameters via pickle
-  benchmark(**params,
-            hyper_parameters_init=None,
-            hyper_parameter_search=True,
-            valid=True,
-            test=False,
-            out_path=pathlib.Path('.') / 'benchmark' / 'optimization',
-            load_hyper_parameters=False,
-            save_hyper_parameters=True,
-            save_results=False,
-            reload=False,
-            seed=SEED)
+  # # load default molnet hyper_parameters,
+  # # and evaluate on train and valid sets,
+  # # using valid score to optimize hyper_parameters using a gaussian process.
+  # #   - saving hyper_parameters via pickle
+  # benchmark(**params,
+  #           hyper_parameters_init=None,
+  #           hyper_parameter_search=True,
+  #           valid=True,
+  #           test=False,
+  #           out_path=pathlib.Path('.') / 'benchmark' / 'optimization',
+  #           load_hyper_parameters=False,
+  #           save_hyper_parameters=True,
+  #           save_results=False,
+  #           reload=False,
+  #           seed=SEED)
 
-  # load optimized hyper_parameters,
-  # and evaluate on train and test sets.
-  #   - saving the results to a csv
-  benchmark(**params,
-            hyper_parameters_init=None,
-            hyper_parameter_search=False,
-            valid=False,
-            test=True,
-            out_path=pathlib.Path('.') / 'benchmark' / 'evaluation',
-            load_hyper_parameters=True,
-            save_hyper_parameters=False,
-            save_results=True,
-            reload=False,
-            seed=SEED)
+  # # load optimized hyper_parameters,
+  # # and evaluate on train and test sets.
+  # #   - saving the results to a csv
+  # benchmark(**params,
+  #           hyper_parameters_init=None,
+  #           hyper_parameter_search=False,
+  #           valid=False,
+  #           test=True,
+  #           out_path=pathlib.Path('.') / 'benchmark' / 'evaluation',
+  #           load_hyper_parameters=True,
+  #           save_hyper_parameters=False,
+  #           save_results=True,
+  #           reload=False,
+  #           seed=SEED)
 
   # load the optimal hyper_parameters computed for the molnet/deepchem paper (via pickle),
   # and evaluate on train and test sets.
