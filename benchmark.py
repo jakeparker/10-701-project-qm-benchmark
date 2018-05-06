@@ -227,7 +227,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                     else:
                       frac_train = frac
                       frac_valid = None
-                      frac_train = None
+                      frac_test = None
                       print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
                       valid_set, test_set = None
                       train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
@@ -456,7 +456,7 @@ def main():
   })
   splits = ['Random']
 
-  fracs = [0.4], # [float(x+1)/10 for x in range(3, 8)] # [float(x+1)/10 for x in range(8)]
+  fracs = [0.4] # [float(x+1)/10 for x in range(3, 8)] # [float(x+1)/10 for x in range(8)]
 
   metrics = dict({
     'qm7': ['MAE'],
