@@ -4,3 +4,5 @@ qm9,ECFP,regression,conventional,krr,homo,Random,0.1,NA,0.9,MAE,0.00543565272487
 qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.2,NA,0.8,MAE,0.0028386484354910126,NA,0.007708668989838028,816.080504655838
 qm9,ECFP,regression,conventional,krr,homo,Random,0.2,NA,0.8,MAE,0.00517438507477193,NA,0.00733017484162598,440.3991713523865
 qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.3,NA,0.7,MAE,0.0026501187066261134,NA,0.007206776596231892,1360.543289899826
+qm9,ECFP,regression,conventional,krr,homo,Random,0.3,NA,0.7,mae_score,0.0050151488038051185,NA,0.006883239563733194,647.4393122196198
+qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.4,NA,0.6,mae_score,0.0025477787663942225,NA,0.006917200640044637,992.3170146942139

@@ -450,13 +450,13 @@ def main():
     'qm7': None,
     'qm7b': [3, 4],
     'qm8': None,
-    'qm9': ['homo'], #, 'lumo'],
+    'qm9': ['homo', 'lumo'],
     'esol': None,
     'freesolv': None
   })
   splits = ['Random']
 
-  fracs =  [0.3] # [float(x+1)/10 for x in range(8)]
+  fracs = [0.4], # [float(x+1)/10 for x in range(3, 8)] # [float(x+1)/10 for x in range(8)]
 
   metrics = dict({
     'qm7': ['MAE'],
