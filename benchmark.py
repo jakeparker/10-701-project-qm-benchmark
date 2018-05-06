@@ -13,7 +13,7 @@ SEED = 123
 np.random.seed(SEED)
 tf.set_random_seed(SEED)
 
-def _benchmark_classification():
+def benchmark_classification():
   pass
 
 # rf_regression, krr, graphconvreg, weave_regression
@@ -29,8 +29,8 @@ def _benchmark_regression(train_dataset,
                          test=False,
                          hyper_parameters=None,
                          seed=None):
-  from sklearn.ensemble import RandomForestRegressor
-  from sklearn.kernel_ridge import KernelRidge
+  #from sklearn.ensemble import RandomForestRegressor
+  #from sklearn.kernel_ridge import KernelRidge
   pass
 
 
@@ -47,20 +47,18 @@ def run_benchmark(data, model, mode, tasks, metrics, transformers, n_features,
       hyper_parameters = deepchem.molnet.preset_hyper_parameters.hps[model]
     pass
   if mode == 'classification':
-    from deepchem.molnet.run_benchmark_models import benchmark_classification
     train_score, valid_score, test_score = benchmark_classification()
   elif mode == 'regression':
-    from deepchem.molnet.run_benchmark_models import benchmark_regression
-    train_score, valid_score, test_score = benchmark_regression(data['train'], # train
-                                                                data['test'],  # valid
-                                                                data['valid'], # test
-                                                                tasks,
-                                                                transformers,
-                                                                metric,
-                                                                model,
-                                                                test=False,
-                                                                hyper_parameters=hyper_parameters,
-                                                                seed=seed)
+    from benchmark_regression import benchmark_regression
+    train_score, test_score = benchmark_regression(data['train'],
+                                                   data['test'],
+                                                   tasks,
+                                                   transformers,
+                                                   n_features,
+                                                   metrics,
+                                                   model,
+                                                   hyper_parameters=hyper_parameters,
+                                                   seed=seed)
 
   time_finish_fitting = time.time()
   scores = dict({
