@@ -180,66 +180,66 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
   })
 
   for dataset in datasets:
-    if tasks[dataset] is None:
+    print('-------------------------------------')
+    print('Benchmark on dataset: %s' % dataset)
+    print('-------------------------------------')
+    if len(modes[dataset]) == 0: 
       pass
     else:
-      for task in tasks[dataset]:
-        print('-------------------------------------')
-        print('Benchmark on dataset: %s' % dataset)
-        print('-------------------------------------')
-        metric_funcs = [deepchem.metrics.Metric(lookup_metric_func[metric]) for metric in metrics[dataset]]
-        direction = lookup_direction[metrics[dataset][0]]
-        for featurizer in featurizers:
-          if loaders[frozenset([dataset, featurizer])] is None:
-            pass
-          elif all([models[frozenset([featurizer, mode, method])] is None for mode in modes[dataset] for method in methods]):
-            pass
-          else:
-            print("About to featurize %s dataset using: %s" % (dataset, featurizer))
-            data = load_data(dataset, featurizer, loaders, links, [task], lookup_featurizer_func, reload=reload)
-            for split in splits:
-              for frac in fracs:
-                split_func = lookup_split_func[split]
-                if valid and test:
-                  frac_train = frac
-                  frac_valid = floor((1-frac) / 2.0)
-                  frac_test = ceil((1-frac) / 2.0)
-                  print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
-                  train_set, valid_set, test_set = split_func.train_valid_test_split(data, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
-                elif valid:
-                  frac_train = frac
-                  frac_valid = 1-frac
-                  frac_test = None
-                  print('About to split %s dataset into {%d train / %d valid} sets using %s split' % (dataset, frac_train, frac_valid, split))
-                  test_set = None
-                  train_set, valid_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
-                elif test:
-                  frac_train = frac
-                  frac_valid = None
-                  frac_test = 1-frac
-                  print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
-                  valid_set = None
-                  train_set, test_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
-                else:
-                  frac_train = frac
-                  frac_valid = None
-                  frac_train = None
-                  print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
-                  valid_set, test_set = None
-                  train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
-                transformers = [deepchem.trans.NormalizationTransformer(transform_y=True, dataset=train_set)]
-                for transformer in transformers:
-                  if train_set is not None:
-                    train_set = transformer.transform(train_set)
-                  if valid_set is not None:
-                    valid_set = transformer.transform(valid_set)
-                  if test_set is not None:
-                    test_set =  transformer.transform(test_set)
-                split_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
-                if len(modes[dataset]) == 0: 
-                  pass
-                else:
-                  for mode in modes[dataset]:
+      for mode in modes[dataset]:
+        if tasks[dataset] is None:
+          pass
+        else:
+          metric_funcs = [deepchem.metrics.Metric(lookup_metric_func[metric], mode=mode) for metric in metrics[dataset]]
+          direction = lookup_direction[metrics[dataset][0]]
+          for task in tasks[dataset]:
+            for featurizer in featurizers:
+              if loaders[frozenset([dataset, featurizer])] is None:
+                pass
+              elif all([models[frozenset([featurizer, mode, method])] is None for mode in modes[dataset] for method in methods]):
+                pass
+              else:
+                print("About to featurize %s dataset using: %s" % (dataset, featurizer))
+                data = load_data(dataset, featurizer, loaders, links, [task], lookup_featurizer_func, reload=reload)
+                for split in splits:
+                  for frac in fracs:
+                    split_func = lookup_split_func[split]
+                    if valid and test:
+                      frac_train = frac
+                      frac_valid = floor((1-frac) / 2.0)
+                      frac_test = ceil((1-frac) / 2.0)
+                      print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
+                      train_set, valid_set, test_set = split_func.train_valid_test_split(data, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
+                    elif valid:
+                      frac_train = frac
+                      frac_valid = 1-frac
+                      frac_test = None
+                      print('About to split %s dataset into {%d train / %d valid} sets using %s split' % (dataset, frac_train, frac_valid, split))
+                      test_set = None
+                      train_set, valid_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+                    elif test:
+                      frac_train = frac
+                      frac_valid = None
+                      frac_test = 1-frac
+                      print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
+                      valid_set = None
+                      train_set, test_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+                    else:
+                      frac_train = frac
+                      frac_valid = None
+                      frac_train = None
+                      print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
+                      valid_set, test_set = None
+                      train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+                    transformers = [deepchem.trans.NormalizationTransformer(transform_y=True, dataset=train_set)]
+                    for transformer in transformers:
+                      if train_set is not None:
+                        train_set = transformer.transform(train_set)
+                      if valid_set is not None:
+                        valid_set = transformer.transform(valid_set)
+                      if test_set is not None:
+                        test_set =  transformer.transform(test_set)
+                    split_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})                
                     for method in methods:
                       key = frozenset([featurizer, mode, method])
                       if models[key] is None:
