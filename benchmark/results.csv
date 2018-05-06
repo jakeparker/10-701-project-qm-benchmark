@@ -1,1 +1,3 @@
 dataset,feature,mode,method,model,task,split,frac_train,frac_valid,frac_test,metric,train_score,valid_score,test_score,runtime
+qm9,GraphConv,regression,graph,graphconvreg,homo,Random,0.8,None,0.19999999999999996,MAE,0.156827549830514,None,0.18531487980109354,1637.0954339504242
+qm9,Weave,regression,graph,weave_regression,homo,Random,0.8,None,0.19999999999999996,MAE,0.004234810618740182,None,0.00450250309110291,2953.3304929733276

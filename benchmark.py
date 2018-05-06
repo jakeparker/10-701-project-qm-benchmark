@@ -1,5 +1,5 @@
 import time
-import pathlib
+import os
 import csv
 import pickle
 
@@ -66,16 +66,16 @@ def run_benchmark(data, model, mode, tasks, metrics, transformers, n_features,
     'valid': valid_score,
     'test': test_score
   })
-  runtime = time_finish_fitting - time.start_fitting
+  runtime = time_finish_fitting - time_start_fitting
   return scores, hyper_parameters, runtime
 
 
 def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=True):
   file_type = loaders[frozenset([dataset, featurizer])]
   file_name = str(dataset) + str(file_type)
-  data_dir = pathlib.Path(deepchem.utils.get_data_dir())
-  dataset_file = data_dir / file_name
-  if not dataset_file.exists():
+  data_dir = deepchem.utils.get_data_dir()
+  dataset_file = os.path.join(data_dir, file_name)
+  if not os.path.exists(dataset_file):
     url = links[frozenset([dataset, file_type])]
     deepchem.utils.download_url(url)
   if file_type == '.mat':
@@ -102,7 +102,7 @@ def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func
 
 def benchmark(datasets, featurizers, loaders, links, modes, methods, models, features, tasks, splits, fracs, metrics,
               hyper_parameters_init=None, hyper_parameter_search=True, max_iter=20, search_range=4,
-              valid=True, test=True, out_path=pathlib.Path('.'), load_hyper_parameters=False, save_hyper_parameters=False, save_results=True, reload=True, seed=None):
+              valid=True, test=True, out_path=None, load_hyper_parameters=False, save_hyper_parameters=False, save_results=True, reload=True, seed=None):
   """
   dataset,feature,mode,method,model,task,split,frac_train,frac_valid,frac_test,metric,train_score,valid_score,test_score,runtime
   """
@@ -117,11 +117,11 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
   elif load_hyper_parameters:
     def hyper_parameters_lookup(dataset, model):
       file_name = str(dataset) + str(model) + '.pkl'
-      file_path = pathlib.Path('.') / 'pickle' / file_name
+      file_path = os.path.join('.', 'pickle', file_name)
       try:
         with open(file_path, 'rb') as f:
           return pickle.load(f)
-      except: # files doesn't exist
+      except:
         return deepchem.molnet.preset_hyper_parameters.hps[model]
   else:
     hyper_parameters_lookup = lambda dataset, model: deepchem.molnet.preset_hyper_parameters.hps[model]
@@ -184,7 +184,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
         print('-------------------------------------')
         print('Benchmark on dataset: %s' % dataset)
         print('-------------------------------------')
-        metric_funcs = map(deepchem.metrics.Metric, [lookup_metric_func[metric] for metric in metrics[dataset]])
+        metric_funcs = [deepchem.metrics.Metric(lookup_metric_func[metric]) for metric in metrics[dataset]]
         direction = lookup_direction[metrics[dataset][0]]
         for featurizer in featurizers:
           if loaders[frozenset([dataset, featurizer])] is None:
@@ -213,7 +213,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                 elif test:
                   frac_train = frac
                   frac_valid = None
-                  frac_test = 0.1 # 1-frac
+                  frac_test = 1-frac
                   print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
                   valid_set = None
                   train_set, test_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
@@ -263,14 +263,14 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                                                                             reload,
                                                                             seed)
                           if save_hyper_parameters:
-                            with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'wb') as f:
+                            with open(os.path.join('.', 'pickle', dataset + model + '.pkl'), 'wb') as f:
                               pickle.dump(f, hyper_parameters)
                           if save_results:
-                            with open(out_path / 'results.csv', 'a') as f:
+                            with open(os.path.join(out_path, 'results.csv'), 'a') as f:
                               writer = csv.writer(f)
                               output_line = [
                                 dataset,
-                                feature,
+                                featurizer,
                                 mode,
                                 method,
                                 model,
@@ -279,13 +279,11 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                                 str(frac_train),
                                 str(frac_valid),
                                 str(frac_test),
-                                metric,
-                                scores['train']
+                                metrics[dataset][0],
+                                scores['train'][dataset]['mae_score']
                               ]
-                              if valid:
-                                output_line.extend([scores['valid']])
-                              if test:
-                                output_line.extend([scores['test']])
+                              output_line.extend([scores['valid'][dataset]['mae_score'] if valid else None])
+                              output_line.extend([scores['test'][dataset]['mae_score'] if test else None])
                               output_line.extend([runtime])
                               writer.writerow(output_line)
   return None
@@ -371,7 +369,7 @@ def main():
     'esol': ['regression'],
     'freesolv': ['regression']
   })
-  methods = ['conventional', 'graph']
+  methods = ['graph']
   models = dict({
     frozenset(['Raw', 'regression', 'conventional']): None,
     frozenset(['Raw', 'regression', 'graph']): None, # ['textcnn_regression'],
@@ -379,26 +377,26 @@ def main():
     frozenset(['Raw', 'coordinates', 'graph']): None,
     frozenset(['Raw', 'classification', 'conventional']): None,
     frozenset(['Raw', 'classification', 'graph']): None,
-    frozenset(['ECFP', 'regression', 'conventional']): ['rf_regression', 'krr'],
+    frozenset(['ECFP', 'regression', 'conventional']):  ['rf_regression', 'krr'],
     frozenset(['ECFP', 'regression', 'graph']): None, # ['tf_regression'],
     frozenset(['ECFP', 'coordinates', 'conventional']): None,
     frozenset(['ECFP', 'coordinates', 'graph']): None,
     frozenset(['ECFP', 'classification', 'conventional']): None,
     frozenset(['ECFP', 'classification', 'graph']): None,
     frozenset(['CoulombMatrix', 'regression', 'conventional']): None, # ['krr_ft'],
-    frozenset(['CoulombMatrix', 'regression', 'graph']): None, # ['tf_regression_ft', 'dtnn'],
+    frozenset(['CoulombMatrix', 'regression', 'graph']):['dtnn'], # ['tf_regression_ft', 'dtnn'],
     frozenset(['CoulombMatrix', 'coordinates', 'conventional']): None,
     frozenset(['CoulombMatrix', 'coordinates', 'graph']): None,
     frozenset(['CoulombMatrix', 'classification', 'conventional']): None,
     frozenset(['CoulombMatrix', 'classification', 'graph']): None,
     frozenset(['GraphConv', 'regression', 'conventional']): None,
-    frozenset(['GraphConv', 'regression', 'graph']): ['graphconvreg'],
+    frozenset(['GraphConv', 'regression', 'graph']): None, # ['graphconvreg'],
     frozenset(['GraphConv', 'coordinates', 'conventional']): None,
     frozenset(['GraphConv', 'coordinates', 'graph']): None,
     frozenset(['GraphConv', 'classification', 'conventional']): None,
     frozenset(['GraphConv', 'classification', 'graph']): None,
     frozenset(['Weave', 'regression', 'conventional']): None,
-    frozenset(['Weave', 'regression', 'graph']): ['weave_regression'],
+    frozenset(['Weave', 'regression', 'graph']): None, # ['weave_regression'],
     frozenset(['Weave', 'coordinates', 'conventional']): None,
     frozenset(['Weave', 'coordinates', 'graph']): None,
     frozenset(['Weave', 'classification', 'conventional']): None,
@@ -410,7 +408,7 @@ def main():
     frozenset(['MP', 'classification', 'conventional']): None,
     frozenset(['MP', 'classification', 'graph']): None,
     frozenset(['BPSymmetryFunction', 'regression', 'conventional']): None,
-    frozenset(['BPSymmetryFunction', 'regression', 'graph']): None, # ['ani'],
+    frozenset(['BPSymmetryFunction', 'regression', 'graph']): ['ani'],
     frozenset(['BPSymmetryFunction', 'coordinates', 'conventional']): None,
     frozenset(['BPSymmetryFunction', 'coordinates', 'graph']): None,
     frozenset(['BPSymmetryFunction', 'classification', 'conventional']): None,
@@ -458,15 +456,15 @@ def main():
   })
   tasks = dict({
     'qm7': None,
-    'qm7b': [3, 4],
+    'qm7b': None, # [3, 4],
     'qm8': None,
     'qm9': ['homo', 'lumo'],
     'esol': None,
     'freesolv': None
   })
-  splits = ['Random', 'Stratified']
+  splits = ['Random']
 
-  fracs = [0.1]  # [float(x+1)/10 for x in range(8)]
+  fracs = [0.8] # [float(x+1)/10 for x in range(8)]
 
   metrics = dict({
     'qm7': ['MAE'],
@@ -501,7 +499,7 @@ def main():
   #           hyper_parameter_search=True,
   #           valid=True,
   #           test=False,
-  #           out_path=pathlib.Path('.') / 'benchmark' / 'optimization',
+  #           out_path=pathlib.Path('.') / 'benchmark',
   #           load_hyper_parameters=False,
   #           save_hyper_parameters=True,
   #           save_results=False,
@@ -516,7 +514,7 @@ def main():
   #           hyper_parameter_search=False,
   #           valid=False,
   #           test=True,
-  #           out_path=pathlib.Path('.') / 'benchmark' / 'evaluation',
+  #           out_path=pathlib.Path('.') / 'benchmark',
   #           load_hyper_parameters=True,
   #           save_hyper_parameters=False,
   #           save_results=True,
@@ -531,7 +529,7 @@ def main():
             hyper_parameter_search=False,
             valid=False,
             test=True,
-            out_path=pathlib.Path('.') / 'benchmark' / 'molnet',
+            out_path=os.path.join('.', 'benchmark'),
             load_hyper_parameters=True,
             save_hyper_parameters=False,
             save_results=True,
