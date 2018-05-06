@@ -271,24 +271,27 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                           if save_results:
                             with open(os.path.join(out_path, 'results.csv'), 'a') as f:
                               writer = csv.writer(f)
-                              output_line = [
-                                dataset,
-                                featurizer,
-                                mode,
-                                method,
-                                model,
-                                str(task),
-                                str(split),
-                                str(frac_train) if frac_train is not None else 'NA',
-                                str(frac_valid) if frac_valid is not None else 'NA',
-                                str(frac_test) if frac_test is not None else 'NA',
-                                metrics[dataset][0],
-                                scores['train'][dataset]['mae_score']
-                              ]
-                              output_line.extend([scores['valid'][dataset]['mae_score'] if valid else None])
-                              output_line.extend([scores['test'][dataset]['mae_score'] if test else None])
-                              output_line.extend([runtime])
-                              writer.writerow(output_line)
+                              model_name = list(scores['train'].keys())[0]
+                              assert(model == model_name)
+                              for metric in scores['train'][model_name]:
+                                output_line = [
+                                  dataset,
+                                  featurizer,
+                                  mode,
+                                  method,
+                                  model,
+                                  str(task),
+                                  str(split),
+                                  str(frac_train) if frac_train is not None else 'NA',
+                                  str(frac_valid) if frac_valid is not None else 'NA',
+                                  str(frac_test) if frac_test is not None else 'NA',
+                                  metric,
+                                  scores['train'][model_name][metric]
+                                ]
+                                output_line.extend([scores['valid'][model_name][metric] if valid else None])
+                                output_line.extend([scores['test'][model_name][metric] if test else None])
+                                output_line.extend([runtime])
+                                writer.writerow(output_line)
   return None
 
 
