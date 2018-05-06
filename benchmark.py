@@ -6,6 +6,7 @@ import pickle
 import numpy as np
 import tensorflow as tf
 import deepchem
+import scipy.io
 
 
 SEED = 123
@@ -32,15 +33,34 @@ def run_benchmark(data, model, tasks, metrics, transformers, n_features,
   return scores, hyper_parameters, runtime
 
 
-def load_data(dataset):
-  pass
+def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=True):
+  file_type = loaders[frozenset([dataset, featurizer])]
+  data_dir = pathlib.Path(deepchem.utils.get_data_dir())
+  dataset_file = data_dir / dataset + file_type
+  if not dataset_file.exists():
+    url = links[frozenset([dataset, file_type])]
+    deepchem.utils.download_url(url)
+  if file_type == '.mat':
+    loader = scipy.io.loadmat(dataset_file)
+    if dataset == 'qm7':
+      X = np.concatenate([np.expand_dims(loader['Z'], 2), loader['R']], axis=2)
+    else:
+      X = loader['X']
+    y = loader['T']
+    w = np.ones_like(y)
+    data = deepchem.data.DiskDataset.from_numpy(X, y, w, ids=None)
+  elif file_type == '.csv':
+    loader = deepchem.data.CSVLoader(tasks=tasks[dataset], smiles_field="smiles", featurizer=featurizer_funcs[frozenset([dataset, featurizer])])
+    data = loader.featurize(dataset_file)
+  elif file_type == '.sdf':
+    loader = deepchem.data.SDFLoader(tasks=tasks[dataset], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset([dataset, featurizer])])
+    data = loader.featurize(dataset_file)
+  else:
+    raise ValueError
   return data
 
-def featurize_data(data, featurizer):
-  pass
-  return featurized_data, transformers, n_features
 
-def benchmark(datasets, featurizers, loaders, modes, methods, models, features, tasks, splits, fracs, metrics,
+def benchmark(datasets, featurizers, loaders, links, modes, methods, models, features, tasks, splits, fracs, metrics,
               hyper_parameters_init=None, hyper_parameter_search=True, max_iter=20, search_range=4,
               valid=True, test=True, out_path=pathlib.Path('.'), load_hyper_parameters=False, save_hyper_parameters=False, save_results=True, reload=True, seed=None):
   """
@@ -59,10 +79,37 @@ def benchmark(datasets, featurizers, loaders, modes, methods, models, features, 
   else:
     hyper_parameters_lookup = lambda dataset, model: deepchem.molnet.preset_hyper_parameters.hps[model]
 
+  lookup_featurizer_func = dict({
+    frozenset(['qm7', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
+    frozenset(['qm7', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
+    frozenset(['qm7', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
+    frozenset(['qm7', 'Weave']): deepchem.feat.WeaveFeaturizer(),
+    frozenset(['qm7', 'BPSymmetryFunction']): ,
+    frozenset(['qm7', 'Raw']): ,
+
+    frozenset(['qm7b', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
+
+    frozenset(['qm8', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
+    frozenset(['qm8', 'CoulombMatrix']): deepchem.feat.CoulombMatrix(26),
+    frozenset(['qm8', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
+    frozenset(['qm8', 'Weave']): deepchem.feat.WeaveFeaturizer(),
+    frozenset(['qm8', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
+    frozenset(['qm8', 'BPSymmetryFunction']): ,
+    frozenset(['qm8', 'Raw']): ,
+
+    frozenset(['qm9', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
+    frozenset(['qm9', 'CoulombMatrix']): deepchem.feat.CoulombMatrix(29),
+    frozenset(['qm9', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
+    frozenset(['qm9', 'Weave']): deepchem.feat.WeaveFeaturizer(),
+    frozenset(['qm9', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
+    frozenset(['qm9', 'BPSymmetryFunction']): ,
+    frozenset(['qm9', 'Raw']): ,
+  })
+
   lookup_split_func = dict({
     'index': deepchem.splits.IndexSplitter(),
     'random': deepchem.splits.RandomSplitter(),
-    'stratified': deepchem.splits.SingletaskStratifiedSplitter(task_number=0)
+    'stratified': deepchem.splits.SingletaskStratifiedSplitter()
   })
 
   lookup_metric_func = dict({
@@ -77,16 +124,19 @@ def benchmark(datasets, featurizers, loaders, modes, methods, models, features, 
     'R2': True # maximize
   })
 
+  transformers = [
+    deepchem.trans.NormalizationTransformer(transform_y=True, dataset=train_dataset)
+  ]
+
   for dataset in datasets:
     print('-------------------------------------')
     print('Benchmark on dataset: %s' % dataset)
     print('-------------------------------------')
     metric_funcs = map(deepchem.metrics.Metric, [lookup_metric_func[metric] for metric in metrics[dataset]])
     direction = lookup_direction[metrics[dataset][0]]
-    data = load_data(dataset) # load dataset
     for featurizer in featurizers:
       print("About to featurize %s dataset using: %s" % (dataset, featurizer))
-      featurized_data, transformers, n_features = featurize_data(data, featurizer) # featurize dataset
+      data = load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=reload)
       for split in splits:
         for frac in fracs:
           split_func = lookup_split_func[split]
@@ -95,28 +145,35 @@ def benchmark(datasets, featurizers, loaders, modes, methods, models, features, 
             frac_valid = floor((1-frac) / 2.0)
             frac_test = ceil((1-frac) / 2.0)
             print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
-            train_set, valid_set, test_set = split_func.train_valid_test_split(dataset, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
+            train_set, valid_set, test_set = split_func.train_valid_test_split(data, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
           elif valid:
             frac_train = frac
             frac_valid = 1-frac
             frac_test = None
             print('About to split %s dataset into {%d train / %d valid} sets using %s split' % (dataset, frac_train, frac_valid, split))
             test_set = None
-            train_set, valid_set = split_func.train_test_split(dataset, frac_train=frac_train, seed=seed)
+            train_set, valid_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
           elif test:
             frac_train = frac
             frac_valid = None
             frac_test = 1-frac
             print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
             valid_set = None
-            train_set, test_set = split_func.train_test_split(dataset, frac_train=frac_train, seed=seed)
+            train_set, test_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
           else:
             frac_train = frac
             frac_valid = None
             frac_train = None
             print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
             valid_set, test_set = None
-            train_set, _ = split_func.train_test_split(dataset, frac_train=frac_train, seed=seed)
+            train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+          for transformer in transformers:
+            if train_set != None:
+              train_set = transformer.transform(train_set)
+            if valid_set != None:
+              valid_set = transformer.transform(valid_set)
+            if test_set != None:
+              test_set =  transformer.transform(test_set)
           split_featurized_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
           if len(modes[dataset] == 0): 
             pass
@@ -201,57 +258,48 @@ def benchmark(datasets, featurizers, loaders, modes, methods, models, features, 
 def main():
   datasets = ['qm7b', 'qm9']
   featurizers = ['Raw', 'ECFP', 'CoulombMatrix', 'GraphConv', 'Weave', 'MP', 'BPSymmetryFunction']
-  featurizer_funcs = dict({
-    frozenset(['qm7', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
-    frozenset(['qm7', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
-    frozenset(['qm7', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
-    frozenset(['qm7', 'Weave']): deepchem.feat.WeaveFeaturizer(),
-    frozenset(['qm7', 'BPSymmetryFunction']): ,
-    frozenset(['qm7', 'Raw']): ,
+  links = dict({
+    frozenset(['qm7', '.mat']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm7.mat',
+    frozenset(['qm7', '.csv']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm7.csv',
+    frozenset(['qm7', '.sdf']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/gdb7.tar.gz',
 
-    frozenset(['qm7b', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
+    frozenset(['qm7b', '.mat']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm7b.mat',
+    # frozenset(['qm7b', '.csv']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm7b.csv', # broken link
+    # frozenset(['qm7b', '.sdf']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/gdb7b.tar.gz', # broken link
 
-    frozenset(['qm8', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
-    frozenset(['qm8', 'CoulombMatrix']): deepchem.feat.CoulombMatrix(26),
-    frozenset(['qm8', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
-    frozenset(['qm8', 'Weave']): deepchem.feat.WeaveFeaturizer(),
-    frozenset(['qm8', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
-    frozenset(['qm8', 'BPSymmetryFunction']): ,
-    frozenset(['qm8', 'Raw']): ,
+    frozenset(['qm8', '.mat']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm8.mat',
+    frozenset(['qm8', '.csv']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm8.csv',
+    frozenset(['qm8', '.sdf']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/gdb8.tar.gz',
 
-    frozenset(['qm9', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
-    frozenset(['qm9', 'CoulombMatrix']): deepchem.feat.CoulombMatrix(29),
-    frozenset(['qm9', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
-    frozenset(['qm9', 'Weave']): deepchem.feat.WeaveFeaturizer(),
-    frozenset(['qm9', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
-    frozenset(['qm9', 'BPSymmetryFunction']): ,
-    frozenset(['qm9', 'Raw']): ,
+    frozenset(['qm9', '.mat']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm9.mat',
+    frozenset(['qm9', '.csv']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/qm9.csv',
+    frozenset(['qm9', '.sdf']): 'http://deepchem.io.s3-website-us-west-1.amazonaws.com/datasets/gdb9.tar.gz',
   })
   loaders = dict({
-    frozenset(['qm7', 'ECFP']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm7'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm7', 'ECFP'])])),
-    frozenset(['qm7', 'CoulombMatrix']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm7'], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset(['qm7', 'CoulombMatrix'])])),
-    frozenset(['qm7', 'GraphConv']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm7'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm7', 'GraphConv'])])),
-    frozenset(['qm7', 'Weave']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm7'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm7', 'Weave'])])),
-    frozenset(['qm7', 'BPSymmetryFunction']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm7'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm7', 'BPSymmetryFunction'])])),
-    frozenset(['qm7', 'Raw']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm7'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm7', 'Raw'])])),
+    frozenset(['qm7', 'ECFP']): '.csv',
+    frozenset(['qm7', 'CoulombMatrix']): '.mat',
+    frozenset(['qm7', 'GraphConv']): '.csv',
+    frozenset(['qm7', 'Weave']): '.csv',
+    frozenset(['qm7', 'BPSymmetryFunction']): '.mat',
+    frozenset(['qm7', 'Raw']): '.csv',
 
-    frozenset(['qm7b', 'CoulombMatrix']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm7'], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset(['qm7', 'CoulombMatrix'])])),
+    frozenset(['qm7b', 'CoulombMatrix']): '.mat',
 
-    frozenset(['qm8', 'ECFP']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm8'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm8', 'ECFP'])])),
-    frozenset(['qm8', 'CoulombMatrix']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm8'], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset(['qm8', 'CoulombMatrix'])])),
-    frozenset(['qm8', 'GraphConv']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm8'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm8', 'GraphConv'])])),
-    frozenset(['qm8', 'Weave']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm8'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm8', 'Weave'])])),
-    frozenset(['qm8', 'MP']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm8'], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset(['qm8', 'MP'])])),
-    frozenset(['qm8', 'BPSymmetryFunction']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm8'], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset(['qm8', 'BPSymmetryFunction'])])),
-    frozenset(['qm8', 'Raw']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm8'], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset(['qm8', 'Raw'])])),
+    frozenset(['qm8', 'ECFP']): '.csv',
+    frozenset(['qm8', 'CoulombMatrix']): '.sdf',
+    frozenset(['qm8', 'GraphConv']): '.csv',
+    frozenset(['qm8', 'Weave']): '.csv',
+    frozenset(['qm8', 'MP']): '.sdf',
+    frozenset(['qm8', 'BPSymmetryFunction']): '.sdf',
+    frozenset(['qm8', 'Raw']): '.sdf',
 
-    frozenset(['qm9', 'ECFP']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm9'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm9', 'ECFP'])])),
-    frozenset(['qm9', 'CoulombMatrix']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm9'], smiles_field="smiles", mol_fiel="mol", featurizer=featurizer_funcs[frozenset(['qm9', 'CoulombMatrix'])])),
-    frozenset(['qm9', 'GraphConv']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm9'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm9', 'GraphConv'])])),
-    frozenset(['qm9', 'Weave']): ('.csv', deepchem.data.CSVLoader(tasks=tasks['qm9'], smiles_field="smiles", featurizer=featurizer_funcs[frozenset(['qm9', 'Weave'])])),
-    frozenset(['qm9', 'MP']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm9'], smiles_field="smiles", mol_fiel="mol", featurizer=featurizer_funcs[frozenset(['qm9', 'MP'])])),
-    frozenset(['qm9', 'BPSymmetryFunction']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm9'], smiles_field="smiles", mol_fiel="mol", featurizer=featurizer_funcs[frozenset(['qm9', 'BPSymmetryFunction'])])),
-    frozenset(['qm9', 'Raw']): ('.sdf', deepchem.data.SDFLoader(tasks=tasks['qm9'], smiles_field="smiles", mol_fiel="mol", featurizer=featurizer_funcs[frozenset(['qm9', 'Raw'])])),
+    frozenset(['qm9', 'ECFP']): '.csv',
+    frozenset(['qm9', 'CoulombMatrix']): '.sdf',
+    frozenset(['qm9', 'GraphConv']): '.csv',
+    frozenset(['qm9', 'Weave']): '.csv',
+    frozenset(['qm9', 'MP']): '.sdf',
+    frozenset(['qm9', 'BPSymmetryFunction']): '.sdf',
+    frozenset(['qm9', 'Raw']): '.sdf'
   })
   modes = dict({
     'qm7': ['regression', 'coordinates'],
@@ -371,6 +419,7 @@ def main():
     'datasets': datasets,
     'featurizers': featurizers,
     'loaders': loaders,
+    'links': links,
     'modes': modes,
     'methods': methods,
     'models': models,
@@ -394,7 +443,7 @@ def main():
             load_hyper_parameters=False,
             save_hyper_parameters=True,
             save_results=False,
-            reload=True,
+            reload=False,
             seed=SEED)
 
   # load optimized hyper_parameters,
@@ -409,7 +458,7 @@ def main():
             load_hyper_parameters=True,
             save_hyper_parameters=False,
             save_results=True,
-            reload=True,
+            reload=False,
             seed=SEED)
 
   # load the optimal hyper_parameters computed for the molnet/deepchem paper (via pickle),
@@ -424,7 +473,7 @@ def main():
             load_hyper_parameters=True,
             save_hyper_parameters=True,
             save_results=True,
-            reload=True,
+            reload=False,
             seed=SEED)
   return None
 
