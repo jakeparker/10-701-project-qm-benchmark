@@ -149,7 +149,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     frozenset(['qm8', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
     frozenset(['qm8', 'Weave']): deepchem.feat.WeaveFeaturizer(),
     frozenset(['qm8', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
-    frozenset(['qm8', 'BPSymmetryFunction']): deepchem.feat.BPSymmetryFUnction(26),
+    frozenset(['qm8', 'BPSymmetryFunction']): deepchem.feat.BPSymmetryFunction(26),
     frozenset(['qm8', 'Raw']): deepchem.feat.RawFeaturizer(),
 
     frozenset(['qm9', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
@@ -271,24 +271,27 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                           if save_results:
                             with open(os.path.join(out_path, 'results.csv'), 'a') as f:
                               writer = csv.writer(f)
-                              output_line = [
-                                dataset,
-                                featurizer,
-                                mode,
-                                method,
-                                model,
-                                str(task),
-                                str(split),
-                                str(frac_train) if frac_train is not None else 'NA',
-                                str(frac_valid) if frac_valid is not None else 'NA',
-                                str(frac_test) if frac_test is not None else 'NA',
-                                metrics[dataset][0],
-                                scores['train'][dataset]['mae_score']
-                              ]
-                              output_line.extend([scores['valid'][dataset]['mae_score'] if valid else 'NA'])
-                              output_line.extend([scores['test'][dataset]['mae_score'] if test else 'NA'])
-                              output_line.extend([runtime])
-                              writer.writerow(output_line)
+                              model_name = list(scores['train'].keys())[0]
+                              assert(model == model_name)
+                              for metric in scores['train'][model_name]:
+                                output_line = [
+                                    dataset,
+                                    featurizer,
+                                    mode,
+                                    method,
+                                    model,
+                                    str(task),
+                                    str(split),
+                                    str(frac_train) if frac_train is not None else 'NA',
+                                    str(frac_valid) if frac_valid is not None else 'NA',
+                                    str(frac_test) if frac_test is not None else 'NA',
+                                    metric,
+                                    scores['train'][model_name][metric]
+                                ]
+                                output_line.extend([scores['valid'][model_name][metric] if valid else 'NA'])
+                                output_line.extend([scores['test'][model_name][metric] if test else 'NA'])
+                                output_line.extend([runtime])
+                                writer.writerow(output_line)
   return None
 
 
