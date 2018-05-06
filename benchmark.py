@@ -170,115 +170,123 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     'R2': True # maximize
   })
 
+  key = frozenset([featurizer, mode, method])
+                  if models[key] is None:
+
   for dataset in datasets:
-    print('-------------------------------------')
-    print('Benchmark on dataset: %s' % dataset)
-    print('-------------------------------------')
-    metric_funcs = map(deepchem.metrics.Metric, [lookup_metric_func[metric] for metric in metrics[dataset]])
-    direction = lookup_direction[metrics[dataset][0]]
-    for featurizer in featurizers:
-      if loaders[frozenset([dataset, featurizer]) is None:
-        pass
-      else:
-        print("About to featurize %s dataset using: %s" % (dataset, featurizer))
-        data = load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=reload)
-        for split in splits:
-          for frac in fracs:
-            split_func = lookup_split_func[split]
-            if valid and test:
-              frac_train = frac
-              frac_valid = floor((1-frac) / 2.0)
-              frac_test = ceil((1-frac) / 2.0)
-              print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
-              train_set, valid_set, test_set = split_func.train_valid_test_split(data, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
-          elif valid:
-            frac_train = frac
-            frac_valid = 1-frac
-            frac_test = None
-            print('About to split %s dataset into {%d train / %d valid} sets using %s split' % (dataset, frac_train, frac_valid, split))
-            test_set = None
-            train_set, valid_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
-          elif test:
-            frac_train = frac
-            frac_valid = None
-            frac_test = 0.1 # 1-frac
-            print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
-            valid_set = None
-            train_set, test_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
-          else:
-            frac_train = frac
-            frac_valid = None
-            frac_train = None
-            print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
-            valid_set, test_set = None
-            train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
-          transformers = [deepchem.trans.NormalizationTransformer(transform_y=True, dataset=train_set)]
-          for transformer in transformers:
-            if train_set is not None:
-              train_set = transformer.transform(train_set)
-            if valid_set is not None:
-              valid_set = transformer.transform(valid_set)
-            if test_set is not None:
-              test_set =  transformer.transform(test_set)
-          split_featurized_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
-          if len(modes[dataset] == 0): 
-            pass
-          else:
-            for mode in modes[dataset]:
-              for method in methods:
-                key = frozenset([featurizer, mode, method])
-                if models[key] is None:
-                  pass
-                else:
-                  for model in models[key]:
-                    n_features = features[frozenset([dataset, featurizer, model])]
-                    if tasks[dataset] is None:
+    if tasks[dataset] is None:
+      pass
+    else:
+      print('-------------------------------------')
+      print('Benchmark on dataset: %s' % dataset)
+      print('-------------------------------------')
+      metric_funcs = map(deepchem.metrics.Metric, [lookup_metric_func[metric] for metric in metrics[dataset]])
+      direction = lookup_direction[metrics[dataset][0]]
+      for featurizer in featurizers:
+        if loaders[frozenset([dataset, featurizer])] is None:
+          pass
+        elif all([models[frozenset([featurizer, mode, method])] is None for mode in modes for method in methods]):
+          pass
+        else:
+          print("About to featurize %s dataset using: %s" % (dataset, featurizer))
+          data = load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=reload)
+          for split in splits:
+            for frac in fracs:
+              split_func = lookup_split_func[split]
+              if valid and test:
+                frac_train = frac
+                frac_valid = floor((1-frac) / 2.0)
+                frac_test = ceil((1-frac) / 2.0)
+                print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
+                train_set, valid_set, test_set = split_func.train_valid_test_split(data, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
+              elif valid:
+                frac_train = frac
+                frac_valid = 1-frac
+                frac_test = None
+                print('About to split %s dataset into {%d train / %d valid} sets using %s split' % (dataset, frac_train, frac_valid, split))
+                test_set = None
+                train_set, valid_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+              elif test:
+                frac_train = frac
+                frac_valid = None
+                frac_test = 0.1 # 1-frac
+                print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
+                valid_set = None
+                train_set, test_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+              else:
+                frac_train = frac
+                frac_valid = None
+                frac_train = None
+                print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
+                valid_set, test_set = None
+                train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+              transformers = [deepchem.trans.NormalizationTransformer(transform_y=True, dataset=train_set)]
+              for transformer in transformers:
+                if train_set is not None:
+                  train_set = transformer.transform(train_set)
+                if valid_set is not None:
+                  valid_set = transformer.transform(valid_set)
+                if test_set is not None:
+                  test_set =  transformer.transform(test_set)
+              split_featurized_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
+              if len(modes[dataset] == 0): 
+                pass
+              else:
+                for mode in modes[dataset]:
+                  for method in methods:
+                    key = frozenset([featurizer, mode, method])
+                    if models[key] is None:
                       pass
                     else:
-                      hyper_parameters = hyper_parameters_lookup(dataset, model)
-                      for task in tasks[dataset]:
-                        scores, hyper_parameters, runtime = run_benchmark(split_featurized_data,
-                                                                          model,
-                                                                          [task],
-                                                                          metric_funcs,
-                                                                          transformers,
-                                                                          n_features, 
-                                                                          direction,
-                                                                          hyper_parameters,
-                                                                          hyper_parameter_search,
-                                                                          max_iter,
-                                                                          search_range,
-                                                                          valid,
-                                                                          test,
-                                                                          out_path,
-                                                                          reload,
-                                                                          seed)
-                        if save_hyper_parameters:
-                          with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'wb') as f:
-                            pickle.dump(f, hyper_parameters)
-                        if save_results:
-                          with open(out_path / 'results.csv', 'a') as f:
-                            writer = csv.writer(f)
-                            output_line = [
-                              dataset,
-                              feature,
-                              mode,
-                              method,
-                              model,
-                              str(task),
-                              str(split),
-                              str(frac_train),
-                              str(frac_valid),
-                              str(frac_test),
-                              metric,
-                              scores['train']
-                            ]
-                            if valid:
-                              output_line.extend([scores['valid']])
-                            if test:
-                              output_line.extend([scores['test']])
-                            output_line.extend([runtime])
-                            writer.writerow(output_line)
+                      for model in models[key]:
+                        n_features = features[frozenset([dataset, featurizer, model])]
+                        if tasks[dataset] is None:
+                          pass
+                        else:
+                          hyper_parameters = hyper_parameters_lookup(dataset, model)
+                          for task in tasks[dataset]:
+                            scores, hyper_parameters, runtime = run_benchmark(split_featurized_data,
+                                                                              model,
+                                                                              [task],
+                                                                              metric_funcs,
+                                                                              transformers,
+                                                                              n_features, 
+                                                                              direction,
+                                                                              hyper_parameters,
+                                                                              hyper_parameter_search,
+                                                                              max_iter,
+                                                                              search_range,
+                                                                              valid,
+                                                                              test,
+                                                                              out_path,
+                                                                              reload,
+                                                                              seed)
+                            if save_hyper_parameters:
+                              with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'wb') as f:
+                                pickle.dump(f, hyper_parameters)
+                            if save_results:
+                              with open(out_path / 'results.csv', 'a') as f:
+                                writer = csv.writer(f)
+                                output_line = [
+                                  dataset,
+                                  feature,
+                                  mode,
+                                  method,
+                                  model,
+                                  str(task),
+                                  str(split),
+                                  str(frac_train),
+                                  str(frac_valid),
+                                  str(frac_test),
+                                  metric,
+                                  scores['train']
+                                ]
+                                if valid:
+                                  output_line.extend([scores['valid']])
+                                if test:
+                                  output_line.extend([scores['test']])
+                                output_line.extend([runtime])
+                                writer.writerow(output_line)
   return None
 
 
