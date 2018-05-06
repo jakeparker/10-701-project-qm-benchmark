@@ -1,318 +1,380 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 06 14:25:40 2017
-
-@author: Zhenqin Wu
-"""
-from __future__ import division
-from __future__ import unicode_literals
-
-import os
 import time
+import pathlib
 import csv
+import pickle
+
 import numpy as np
 import tensorflow as tf
 import deepchem
-import pickle
-from deepchem.molnet.run_benchmark_models import benchmark_classification, benchmark_regression
-from deepchem.molnet.check_availability import CheckFeaturizer, CheckSplit
-from deepchem.molnet.preset_hyper_parameters import hps
 
 
-def run_benchmark(datasets,
-                  model,
-                  split=None,
-                  metric=None,
-                  direction=True,
-                  featurizer=None,
-                  n_features=0,
-                  out_path='.',
-                  hyper_parameters=None,
-                  hyper_param_search=False,
-                  max_iter=20,
-                  search_range=2,
-                  test=False,
-                  reload=True,
-                  seed=123):
+SEED = 123
+np.random.seed(SEED)
+tf.set_random_seed(SEED)
+
+
+def run_benchmark(data, model, tasks, metrics, transformers, n_features, 
+                  direction, hyper_parameters, hyper_parameter_search, max_iter, search_range,
+                  valid, test, out_path, reload, seed):
+  pass
+
+  time_start_fitting = time.time()
+
+  # ...
+
+  time_finish_fitting = time.time()
+  scores = dict({
+    'train': train_score, 
+    'valid': valid_score,
+    'test': test_score
+  })
+  runtime = time_finish_fitting - time.start_fitting
+  return scores, hyper_parameters, runtime
+
+
+def load_data(dataset):
+  pass
+  return data
+
+def featurize_data(data, featurizer):
+  pass
+  return featurized_data, transformers, n_features
+
+def benchmark(datasets, featurizers, modes, methods, models, features, tasks, splits, fracs, metrics,
+              hyper_parameters_init=None, hyper_parameter_search=True, max_iter=20, search_range=4,
+              valid=True, test=True, out_path=pathlib.Path('.'), load_hyper_parameters=False, save_hyper_parameters=False, save_results=True, reload=True, seed=None):
   """
-  Run benchmark test on designated datasets with deepchem(or user-defined) model
-
-  Parameters
-  ----------
-  datasets: list of string
-      choice of which datasets to use, should be: bace_c, bace_r, bbbp, chembl,
-      clearance, clintox, delaney, hiv, hopv, kaggle, lipo, muv, nci, pcba,
-      pdbbind, ppb, qm7, qm7b, qm8, qm9, sampl, sider, tox21, toxcast
-  model: string or user-defined model stucture
-      choice of which model to use, deepchem provides implementation of
-      logistic regression, random forest, multitask network,
-      bypass multitask network, irv, graph convolution;
-      for user define model, it should include function: fit, evaluate
-  split: string,  optional (default=None)
-      choice of splitter function, None = using the default splitter
-  metric: string, optional (default=None)
-      choice of evaluation metrics, None = using the default metrics(AUC & R2)
-  direction: bool, optional(default=True)
-      Optimization direction when doing hyperparameter search
-      Maximization(True) or minimization(False)
-  featurizer: string or dc.feat.Featurizer,  optional (default=None)
-      choice of featurization, None = using the default corresponding to model
-      (string only applicable to deepchem models)
-  n_features: int, optional(default=0)
-      depending on featurizers, redefined when using deepchem featurizers,
-      need to be specified for user-defined featurizers(if using deepchem models)
-  out_path: string, optional(default='.')
-      path of result file
-  hyper_parameters: dict, optional (default=None)
-      hyper parameters for designated model, None = use preset values
-  hyper_param_search: bool, optional(default=False)
-      whether to perform hyper parameter search, using gaussian process by default
-  max_iter: int, optional(default=20)
-      number of optimization trials
-  search_range: int(float), optional(default=4)
-      optimization on [initial values / search_range,
-                       initial values * search_range]
-  test: boolean, optional(default=False)
-      whether to evaluate on test set
-  reload: boolean, optional(default=True)
-      whether to save and reload featurized datasets
+  dataset,feature,mode,method,model,task,split,frac_train,frac_valid,frac_test,metric,train_score,valid_score,test_score,runtime
   """
-  for dataset in datasets:
-    if dataset in [
-        'bace_c', 'bbbp', 'clintox', 'hiv', 'muv', 'pcba', 'pcba_146',
-        'pcba_2475', 'sider', 'tox21', 'toxcast'
-    ]:
-      mode = 'classification'
-      if metric == None:
-        metric = [
-            deepchem.metrics.Metric(deepchem.metrics.roc_auc_score, np.mean),
-        ]
-    elif dataset in [
-        'bace_r', 'chembl', 'clearance', 'delaney', 'hopv', 'kaggle', 'lipo',
-        'nci', 'pdbbind', 'ppb', 'qm7', 'qm7b', 'qm8', 'qm9', 'sampl'
-    ]:
-      mode = 'regression'
-      if metric == None:
-        metric = [
-            deepchem.metrics.Metric(deepchem.metrics.pearson_r2_score, np.mean)
-        ]
+  if hyper_parameters_init != None:
+    assert(load_hyper_parameters == False)
+    if all([isinstance(key, str) for key in hyper_parameters_init.keys()]):
+      hyper_parameters_lookup = lambda dataset, model: hyper_parameters_init['model']
+    elif all([isinstance(key, frozenset) for key in hyper_parameters_init.keys()]):
+      hyper_parameters_lookup = lambda dataset, model: hyper_parameters_init[frozenset(['dataset', 'model'])]
     else:
-      raise ValueError('Dataset not supported')
+      raise ValueError
+  elif load_hyper_parameters:
+    hyper_parameters_lookup = lambda dataset, model: with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'rb') as f: pickle.load(f)
+  else:
+    hyper_parameters_lookup = lambda dataset, model: deepchem.molnet.preset_hyper_parameters.hps[model]
 
-    if featurizer == None and isinstance(model, str):
-      # Assigning featurizer if not user defined
-      pair = (dataset, model)
-      if pair in CheckFeaturizer:
-        featurizer = CheckFeaturizer[pair][0]
-        n_features = CheckFeaturizer[pair][1]
-      else:
-        continue
+  lookup_split_func = dict({
+    'index': deepchem.splits.IndexSplitter(),
+    'random': deepchem.splits.RandomSplitter(),
+    'stratified': deepchem.splits.SingletaskStratifiedSplitter(task_number=0)
+  })
 
-    if not split in [None] + CheckSplit[dataset]:
-      continue
+  lookup_metric_func = dict({
+    'MAE': deepchem.metrics.mae_score,
+    'RMSE': deepchem.metrics.rms_score,
+    'R2': deepchem.metrics.pearson_r2_score
+  })
 
-    loading_functions = {
-        'bace_c': deepchem.molnet.load_bace_classification,
-        'bace_r': deepchem.molnet.load_bace_regression,
-        'bbbp': deepchem.molnet.load_bbbp,
-        'chembl': deepchem.molnet.load_chembl,
-        'clearance': deepchem.molnet.load_clearance,
-        'clintox': deepchem.molnet.load_clintox,
-        'delaney': deepchem.molnet.load_delaney,
-        'hiv': deepchem.molnet.load_hiv,
-        'hopv': deepchem.molnet.load_hopv,
-        'kaggle': deepchem.molnet.load_kaggle,
-        'lipo': deepchem.molnet.load_lipo,
-        'muv': deepchem.molnet.load_muv,
-        'nci': deepchem.molnet.load_nci,
-        'pcba': deepchem.molnet.load_pcba,
-        'pcba_146': deepchem.molnet.load_pcba_146,
-        'pcba_2475': deepchem.molnet.load_pcba_2475,
-        'pdbbind': deepchem.molnet.load_pdbbind_grid,
-        'ppb': deepchem.molnet.load_ppb,
-        'qm7': deepchem.molnet.load_qm7_from_mat,
-        'qm7b': deepchem.molnet.load_qm7b_from_mat,
-        'qm8': deepchem.molnet.load_qm8,
-        'qm9': deepchem.molnet.load_qm9,
-        'sampl': deepchem.molnet.load_sampl,
-        'sider': deepchem.molnet.load_sider,
-        'tox21': deepchem.molnet.load_tox21,
-        'toxcast': deepchem.molnet.load_toxcast
-    }
+  lookup_direction = dict({
+    'MAE': False, # minimize
+    'RMSE': False, # minimize
+    'R2': True # maximize
+  })
 
+  for dataset in datasets:
     print('-------------------------------------')
     print('Benchmark on dataset: %s' % dataset)
     print('-------------------------------------')
-    # loading datasets
-    if split is not None:
-      print('Splitting function: %s' % split)
-      tasks, all_dataset, transformers = loading_functions[dataset](
-          featurizer=featurizer, split=split, reload=reload)
-    else:
-      tasks, all_dataset, transformers = loading_functions[dataset](
-          featurizer=featurizer, reload=reload)
-
-    train_dataset, valid_dataset, test_dataset = all_dataset
-
-    time_start_fitting = time.time()
-    train_score = {}
-    valid_score = {}
-    test_score = {}
-
-    if hyper_param_search:
-      if hyper_parameters is None:
-        hyper_parameters = hps[model]
-      search_mode = deepchem.hyper.GaussianProcessHyperparamOpt(model)
-      hyper_param_opt, _ = search_mode.hyperparam_search(
-          hyper_parameters,
-          train_dataset,
-          valid_dataset,
-          transformers,
-          metric,
-          direction=direction,
-          n_features=n_features,
-          n_tasks=len(tasks),
-          max_iter=max_iter,
-          search_range=search_range)
-      hyper_parameters = hyper_param_opt
-    if isinstance(model, str):
-      if mode == 'classification':
-        train_score, valid_score, test_score = benchmark_classification(
-            train_dataset,
-            valid_dataset,
-            test_dataset,
-            tasks,
-            transformers,
-            n_features,
-            metric,
-            model,
-            test=test,
-            hyper_parameters=hyper_parameters,
-            seed=seed)
-      elif mode == 'regression':
-        train_score, valid_score, test_score = benchmark_regression(
-            train_dataset,
-            valid_dataset,
-            test_dataset,
-            tasks,
-            transformers,
-            n_features,
-            metric,
-            model,
-            test=test,
-            hyper_parameters=hyper_parameters,
-            seed=seed)
-    else:
-      model.fit(train_dataset)
-      train_score['user_defined'] = model.evaluate(train_dataset, metric,
-                                                   transformers)
-      valid_score['user_defined'] = model.evaluate(valid_dataset, metric,
-                                                   transformers)
-      if test:
-        test_score['user_defined'] = model.evaluate(test_dataset, metric,
-                                                    transformers)
-
-    time_finish_fitting = time.time()
-
-    if hyper_param_search:
-      with open(os.path.join(out_path, dataset + model + '.pkl'), 'wb') as f:
-        pickle.dump(hyper_parameters, f)
-
-
-#
-# Note by @XericZephyr. Reason why I spun off this function:
-#   1. Some model needs dataset information.
-#   2. It offers us possibility to **cache** the dataset
-#      if the featurizer runs very slow, e.g., GraphConv.
-#   2+. The cache can even happen at Travis CI to accelerate
-#       CI testing.
-#
-def load_dataset(dataset, featurizer, split='random'):
-  """
-  Load specific dataset for benchmark.
-
-  Parameters
-  ----------
-  dataset: string
-      choice of which datasets to use, should be: tox21, muv, sider,
-      toxcast, pcba, delaney, kaggle, nci, clintox, hiv, pcba_128, pcba_146, pdbbind, chembl,
-      qm7, qm7b, qm9, sampl
-  featurizer: string or dc.feat.Featurizer.
-      choice of featurization.
-  split: string,  optional (default=None)
-      choice of splitter function, None = using the default splitter
-  """
-  dataset_loading_functions = {
-      'bace_c': deepchem.molnet.load_bace_classification,
-      'bace_r': deepchem.molnet.load_bace_regression,
-      'bbbp': deepchem.molnet.load_bbbp,
-      'chembl': deepchem.molnet.load_chembl,
-      'clearance': deepchem.molnet.load_clearance,
-      'clintox': deepchem.molnet.load_clintox,
-      'delaney': deepchem.molnet.load_delaney,
-      'hiv': deepchem.molnet.load_hiv,
-      'hopv': deepchem.molnet.load_hopv,
-      'kaggle': deepchem.molnet.load_kaggle,
-      'lipo': deepchem.molnet.load_lipo,
-      'muv': deepchem.molnet.load_muv,
-      'nci': deepchem.molnet.load_nci,
-      'pcba': deepchem.molnet.load_pcba,
-      'pcba_128': deepchem.molnet.load_pcba_128,
-      'pcba_146': deepchem.molnet.load_pcba_146,
-      'pcba_2475': deepchem.molnet.load_pcba_2475,
-      'pdbbind': deepchem.molnet.load_pdbbind_grid,
-      'ppb': deepchem.molnet.load_ppb,
-      'qm7': deepchem.molnet.load_qm7_from_mat,
-      'qm7b': deepchem.molnet.load_qm7b_from_mat,
-      'qm8': deepchem.molnet.load_qm8,
-      'qm9': deepchem.molnet.load_qm9,
-      'sampl': deepchem.molnet.load_sampl,
-      'sider': deepchem.molnet.load_sider,
-      'tox21': deepchem.molnet.load_tox21,
-      'toxcast': deepchem.molnet.load_toxcast
-  }
-  print('-------------------------------------')
-  print('Loading dataset: %s' % dataset)
-  print('-------------------------------------')
-  # loading datasets
-  if split is not None:
-    print('Splitting function: %s' % split)
-  tasks, all_dataset, transformers = dataset_loading_functions[dataset](
-      featurizer=featurizer, split=split)
-  return tasks, all_dataset, transformers
+    metric_funcs = map(deepchem.metrics.Metric, [lookup_metric_func[metric] for metric in metrics[dataset]])
+    direction = lookup_direction[metrics[dataset][0]]
+    data = load_data(dataset) # load dataset
+    for featurizer in featurizers:
+      print("About to featurize %s dataset using: %s" % (dataset, featurizer))
+      featurized_data, transformers, n_features = featurize_data(data, featurizer) # featurize dataset
+      for split in splits:
+        for frac in fracs:
+          split_func = lookup_split_func[split]
+          if valid and test:
+            frac_train = frac
+            frac_valid = floor((1-frac) / 2.0)
+            frac_test = ceil((1-frac) / 2.0)
+            print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
+            train_set, valid_set, test_set = split_func.train_valid_test_split(dataset, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
+          elif valid:
+            frac_train = frac
+            frac_valid = 1-frac
+            frac_test = None
+            print('About to split %s dataset into {%d train / %d valid} sets using %s split' % (dataset, frac_train, frac_valid, split))
+            test_set = None
+            train_set, valid_set = split_func.train_test_split(dataset, frac_train=frac_train, seed=seed)
+          elif test:
+            frac_train = frac
+            frac_valid = None
+            frac_test = 1-frac
+            print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
+            valid_set = None
+            train_set, test_set = split_func.train_test_split(dataset, frac_train=frac_train, seed=seed)
+          else:
+            frac_train = frac
+            frac_valid = None
+            frac_train = None
+            print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
+            valid_set, test_set = None
+            train_set, _ = split_func.train_test_split(dataset, frac_train=frac_train, seed=seed)
+          split_featurized_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
+          if len(modes[dataset] == 0): 
+            pass
+          else:
+            for mode in modes[dataset]:
+              for method in methods:
+                key = frozenset([featurizer, mode, method])
+                if models[key] == None:
+                  pass
+                else:
+                  for model in models[key]:
+                    n_features = features[frozenset([dataset, featurizer, model])]
+                    if tasks[dataset] == None:
+                      pass
+                    else:
+                      hyper_parameters = hyper_parameters_lookup(dataset, model)
+                      for task in tasks[dataset]:
+                        scores, hyper_parameters, runtime = run_benchmark(split_featurized_data,
+                                                                          model,
+                                                                          [task],
+                                                                          metric_funcs,
+                                                                          transformers,
+                                                                          n_features, 
+                                                                          direction,
+                                                                          hyper_parameters,
+                                                                          hyper_parameter_search,
+                                                                          max_iter,
+                                                                          search_range,
+                                                                          valid,
+                                                                          test,
+                                                                          out_path,
+                                                                          reload,
+                                                                          seed)
+                        if save_hyper_parameters:
+                          with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'wb') as f:
+                            pickle.dump(f, hyper_parameters)
+                        if save_results:
+                          with open(out_path / 'results.csv', 'a') as f:
+                            writer = csv.writer(f)
+                            output_line = [
+                              dataset,
+                              feature,
+                              mode,
+                              method,
+                              model,
+                              str(task),
+                              str(split),
+                              str(frac_train),
+                              str(frac_valid),
+                              str(frac_test),
+                              metric,
+                              scores['train']
+                            ]
+                            if valid:
+                              output_line.extend([scores['valid']])
+                            if test:
+                              output_line.extend([scores['test']])
+                            output_line.extend([runtime])
+                            writer.writerow(output_line)
+  return None
 
 
-def benchmark_model(model, all_dataset, transformers, metric, test=False):
-  """
-  Benchmark custom model.
+# esol solubility measurements
+#   - RMSE
+#   - ECFP (RF, KRR)
+#   - GraphConv (Graph Convolution)
+#   - Weave (Weave Regresion)
 
-  model: user-defined model stucture
-    For user define model, it should include function: fit, evaluate.
+# feesolv solvation energy mesasurements
+#   - RMSE
+#   - ECFP (RF, KRR)
+#   - GraphConv (Graph Convolution)
+#   - Weave (Weave Regresion)
 
-  all_dataset: (train, test, val) data tuple.
-    Returned by `load_dataset` function.
+# qm 7b/9 Homo Lumo task (ab-initio calculated energies)
+#   - MAE
+#   - ECFP (RF, KRR)
+#   - CoulombMatrix (DTNN, MPNN, ANI)
+#   - GraphConv (Graph Convolution)
+#   - Weave (Weave Regresion)
 
-  transformers
+def main():
+  datasets = ['qm7b', 'qm9']
+  featurizers = ['Raw', 'ECFP', 'CoulombMatrix', 'GraphConv', 'Weave', 'MP', 'BPSymmetryFunction']
+  modes = dict({
+    'qm7': ['regression', 'coordinates'],
+    'qm7b': ['regression', 'coordinates'],
+    'qm8': ['regression', 'coordinates'],
+    'qm9': ['regression', 'coordinates'],
+    'esol': ['regression'],
+    'freesolv': ['regression']
+  })
+  methods = ['conventional', 'graph']
+  models = dict({ # { (featurizer, mode, method) --> models }
+    frozenset(['Raw', 'regression', 'conventional']): None,
+    frozenset(['Raw', 'regression', 'graph']): ['textcnn_regression'],
+    frozenset(['Raw', 'coordinates', 'conventional']): None,
+    frozenset(['Raw', 'coordinates', 'graph']): None,
+    frozenset(['Raw', 'classification', 'conventional']): None,
+    frozenset(['Raw', 'classification', 'graph']): None,
+    frozenset(['ECFP', 'regression', 'conventional']): ['rf_regression', 'krr'],
+    frozenset(['ECFP', 'regression', 'graph']): ['tf_regression'],
+    frozenset(['ECFP', 'coordinates', 'conventional']): None,
+    frozenset(['ECFP', 'coordinates', 'graph']): None,
+    frozenset(['ECFP', 'classification', 'conventional']): None,
+    frozenset(['ECFP', 'classification', 'graph']): None,
+    frozenset(['CoulombMatrix', 'regression', 'conventional']): ['krr_ft'],
+    frozenset(['CoulombMatrix', 'regression', 'graph']): ['tf_regression_ft', 'dtnn'],
+    frozenset(['CoulombMatrix', 'coordinates', 'conventional']): None,
+    frozenset(['CoulombMatrix', 'coordinates', 'graph']): None,
+    frozenset(['CoulombMatrix', 'classification', 'conventional']): None,
+    frozenset(['CoulombMatrix', 'classification', 'graph']): None,
+    frozenset(['GraphConv', 'regression', 'conventional']): None,
+    frozenset(['GraphConv', 'regression', 'graph']): ['graphconvreg'],
+    frozenset(['GraphConv', 'coordinates', 'conventional']): None,
+    frozenset(['GraphConv', 'coordinates', 'graph']): None,
+    frozenset(['GraphConv', 'classification', 'conventional']): None,
+    frozenset(['GraphConv', 'classification', 'graph']): None,
+    frozenset(['Weave', 'regression', 'conventional']): None,
+    frozenset(['Weave', 'regression', 'graph']): ['weave_regression'],
+    frozenset(['Weave', 'coordinates', 'conventional']): None,
+    frozenset(['Weave', 'coordinates', 'graph']): None,
+    frozenset(['Weave', 'classification', 'conventional']): None,
+    frozenset(['Weave', 'classification', 'graph']): None,
+    frozenset(['MP', 'regression', 'conventional']): None,
+    frozenset(['MP', 'regression', 'graph']): ['mpnn'],
+    frozenset(['MP', 'coordinates', 'conventional']): None,
+    frozenset(['MP', 'coordinates', 'graph']): None,
+    frozenset(['MP', 'classification', 'conventional']): None,
+    frozenset(['MP', 'classification', 'graph']): None,
+    frozenset(['BPSymmetryFunction', 'regression', 'conventional']): None,
+    frozenset(['BPSymmetryFunction', 'regression', 'graph']): ['ani'],
+    frozenset(['BPSymmetryFunction', 'coordinates', 'conventional']): None,
+    frozenset(['BPSymmetryFunction', 'coordinates', 'graph']): None,
+    frozenset(['BPSymmetryFunction', 'classification', 'conventional']): None,
+    frozenset(['BPSymmetryFunction', 'classification', 'graph']): None
+  })
+  features = dict({
+    frozenset(['qm7', 'ECFP', 'krr']): 1024,
+    frozenset(['qm7', 'ECFP', 'rf_regression']): 1024,
+    frozenset(['qm7', 'ECFP', 'tf_regression']): 1024,
+    frozenset(['qm7', 'CoulombMatrix', 'krr_ft']): 1024,
+    frozenset(['qm7', 'CoulombMatrix', 'tf_regression_ft']): [23, 23],
+    frozenset(['qm7', 'CoulombMatrix', 'dtnn']): [23, 23],
+    frozenset(['qm7', 'GraphConv', 'graphconvreg']): 75,
+    frozenset(['qm7', 'Weave', 'weave_regression']): 75,
+    frozenset(['qm7', 'BPSymmetryFunction', 'ani']): [23, 4],
+    frozenset(['qm7', 'Raw', 'textcnn_regression']): None,
 
-  metric: string
-    choice of evaluation metrics.
+    frozenset(['qm7b', 'CoulombMatrix', 'krr_ft']): 1024,
+    frozenset(['qm7b', 'CoulombMatrix', 'tf_regression_ft']): [23, 23],
+    frozenset(['qm7b', 'CoulombMatrix', 'dtnn']): [23, 23],
+
+    frozenset(['qm8', 'ECFP', 'krr']): 1024,
+    frozenset(['qm8', 'ECFP', 'rf_regression']): 1024,
+    frozenset(['qm8', 'ECFP', 'tf_regression']): 1024,
+    frozenset(['qm8', 'CoulombMatrix', 'krr_ft']): 1024,
+    frozenset(['qm8', 'CoulombMatrix', 'tf_regression_ft']): [26, 26],
+    frozenset(['qm8', 'CoulombMatrix', 'dtnn']): [26, 26],
+    frozenset(['qm8', 'GraphConv', 'graphconvreg']): 75,
+    frozenset(['qm8', 'Weave', 'weave_regression']): 75,
+    frozenset(['qm8', 'BPSymmetryFunction', 'ani']): [26, 4],
+    frozenset(['qm8', 'MP', 'mpnn']): [70, 8],
+    frozenset(['qm8', 'Raw', 'textcnn_regression']): None,
+
+    frozenset(['qm9', 'ECFP', 'krr']): 1024,
+    frozenset(['qm9', 'ECFP', 'rf_regression']): 1024,
+    frozenset(['qm9', 'ECFP', 'tf_regression']): 1024,
+    frozenset(['qm9', 'CoulombMatrix', 'krr_ft']): 1024,
+    frozenset(['qm9', 'CoulombMatrix', 'tf_regression_ft']): [29, 29],
+    frozenset(['qm9', 'CoulombMatrix', 'dtnn']): [29, 29],
+    frozenset(['qm9', 'GraphConv', 'graphconvreg']): 75,
+    frozenset(['qm9', 'Weave', 'weave_regression']): 75,
+    frozenset(['qm9', 'BPSymmetryFunction', 'ani']): [29, 4],
+    frozenset(['qm9', 'MP', 'mpnn']): [70, 8],
+    frozenset(['qm9', 'Raw', 'textcnn_regression']): None,
+  })
+  tasks = dict({
+    'qm7': None,
+    'qm7b': [3, 4],
+    'qm8': None,
+    'qm9': ['homo', 'lumo'],
+    'esol': None,
+    'freesolv': None
+  })
+  splits = ['Random', 'Stratified']
+
+  fracs = [float(x+1)/10 for x in range(8)]
+
+  metrics = dict({
+    'qm7': ['MAE'], # deepchem.metrics.Metric(deepchem.metrics.mae_score)
+    'qm7b': ['MAE'],
+    'qm8': ['MAE'],
+    'qm9': ['MAE'],
+    'esol': ['RMSE'],
+    'freesolv': ['RMSE']
+  })
+
+  params = dict({
+    'datasets': datasets,
+    'featurizers': featurizers,
+    'modes': modes,
+    'methods': methods,
+    'models': models,
+    'features': features,
+    'tasks': tasks,
+    'splits': splits,
+    'fracs': fracs,
+    'metrics': metrics
+  })
+
+  # load default molnet hyper_parameters,
+  # and evaluate on train and valid sets,
+  # using valid score to optimize hyper_parameters using a gaussian process.
+  #   - saving hyper_parameters via pickle
+  benchmark(**params,
+            hyper_parameters_init=None,
+            hyper_parameter_search=True,
+            valid=True,
+            test=False,
+            out_path=pathlib.Path('.') / 'benchmark' / 'optimization',
+            load_hyper_parameters=False,
+            save_hyper_parameters=True,
+            save_results=False,
+            reload=False,
+            seed=SEED)
+
+  # load optimized hyper_parameters,
+  # and evaluate on train and test sets.
+  #   - saving the results to a csv
+  benchmark(**params,
+            hyper_parameters_init=None,
+            hyper_parameter_search=False,
+            valid=False,
+            test=True,
+            out_path=pathlib.Path('.') / 'benchmark' / 'evaluation',
+            load_hyper_parameters=True,
+            save_hyper_parameters=False,
+            save_results=True,
+            reload=False,
+            seed=SEED)
+
+  # load the optimal hyper_parameters computed for the molnet/deepchem paper (via pickle),
+  # and evaluate on train and test sets.
+  #   - saving the results to a csv
+  benchmark(**params,
+            hyper_parameters_init=None,
+            hyper_parameter_search=False,
+            valid=False,
+            test=True,
+            out_path=pathlib.Path('.') / 'benchmark' / 'molnet',
+            load_hyper_parameters=True,
+            save_hyper_parameters=True,
+            save_results=True,
+            reload=False,
+            seed=SEED)
+  return None
 
 
-  """
-  time_start_fitting = time.time()
-  train_score = .0
-  valid_score = .0
-  test_score = .0
-
-  train_dataset, valid_dataset, test_dataset = all_dataset
-
-  model.fit(train_dataset)
-  train_score = model.evaluate(train_dataset, metric, transformers)
-  valid_score = model.evaluate(valid_dataset, metric, transformers)
-  if test:
-    test_score = model.evaluate(test_dataset, metric, transformers)
-
-  time_finish_fitting = time.time()
-  time_for_running = time_finish_fitting - time_start_fitting
-
-  return train_score, valid_score, test_score, time_for_running
+if __name__ == '__main__':
+  main()
