@@ -276,14 +276,14 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                                 model,
                                 str(task),
                                 str(split),
-                                str(frac_train),
-                                str(frac_valid),
-                                str(frac_test),
+                                str(frac_train) if frac_train is not None else 'NA',
+                                str(frac_valid) if frac_valid is not None else 'NA',
+                                str(frac_test) if frac_test is not None else 'NA',
                                 metrics[dataset][0],
                                 scores['train'][dataset]['mae_score']
                               ]
-                              output_line.extend([scores['valid'][dataset]['mae_score'] if valid else None])
-                              output_line.extend([scores['test'][dataset]['mae_score'] if test else None])
+                              output_line.extend([scores['valid'][dataset]['mae_score'] if valid else 'NA'])
+                              output_line.extend([scores['test'][dataset]['mae_score'] if test else 'NA'])
                               output_line.extend([runtime])
                               writer.writerow(output_line)
   return None
