@@ -74,7 +74,7 @@ def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func
   file_type = loaders[frozenset([dataset, featurizer])]
   file_name = str(dataset) + str(file_type)
   data_dir = deepchem.utils.get_data_dir()
-  dataset_file = os.path.join(os.path.sep, data_dir, file_name)
+  dataset_file = os.path.join(data_dir, file_name)
   if not os.path.exists(dataset_file):
     url = links[frozenset([dataset, file_type])]
     deepchem.utils.download_url(url)
@@ -117,7 +117,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
   elif load_hyper_parameters:
     def hyper_parameters_lookup(dataset, model):
       file_name = str(dataset) + str(model) + '.pkl'
-      file_path = os.path.join(os.path.sep, '.', 'pickle', file_name)
+      file_path = os.path.join('.', 'pickle', file_name)
       try:
         with open(file_path, 'rb') as f:
           return pickle.load(f)
@@ -263,14 +263,14 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                                                                             reload,
                                                                             seed)
                           if save_hyper_parameters:
-                            with open(os.path.join(os.path.sep, '.', 'pickle', dataset + model + '.pkl'), 'wb') as f:
+                            with open(os.path.join('.', 'pickle', dataset + model + '.pkl'), 'wb') as f:
                               pickle.dump(f, hyper_parameters)
                           if save_results:
-                            with open(os.path.join(os.path.sep, out_path, 'results.csv'), 'a') as f:
+                            with open(os.path.join(out_path, 'results.csv'), 'a') as f:
                               writer = csv.writer(f)
                               output_line = [
                                 dataset,
-                                feature,
+                                featurizer,
                                 mode,
                                 method,
                                 model,
@@ -279,13 +279,11 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                                 str(frac_train),
                                 str(frac_valid),
                                 str(frac_test),
-                                metric,
-                                scores['train']
+                                metrics[dataset][0],
+                                scores['train'][dataset]['mae_score']
                               ]
-                              if valid:
-                                output_line.extend([scores['valid']])
-                              if test:
-                                output_line.extend([scores['test']])
+                              output_line.extend([scores['valid'][dataset]['mae_score'] if valid else None])
+                              output_line.extend([scores['test'][dataset]['mae_score'] if test else None])
                               output_line.extend([runtime])
                               writer.writerow(output_line)
   return None
@@ -371,46 +369,46 @@ def main():
     'esol': ['regression'],
     'freesolv': ['regression']
   })
-  methods = ['conventional', 'graph']
+  methods = ['conventional']
   models = dict({
     frozenset(['Raw', 'regression', 'conventional']): None,
-    frozenset(['Raw', 'regression', 'graph']): None, # ['textcnn_regression'],
+    frozenset(['Raw', 'regression', 'graph']): ['textcnn_regression'],
     frozenset(['Raw', 'coordinates', 'conventional']): None,
     frozenset(['Raw', 'coordinates', 'graph']): None,
     frozenset(['Raw', 'classification', 'conventional']): None,
     frozenset(['Raw', 'classification', 'graph']): None,
-    frozenset(['ECFP', 'regression', 'conventional']): ['rf_regression', 'krr'],
-    frozenset(['ECFP', 'regression', 'graph']): None, # ['tf_regression'],
+    frozenset(['ECFP', 'regression', 'conventional']): ['krr'], # ['rf_regression', 'krr'],
+    frozenset(['ECFP', 'regression', 'graph']): ['tf_regression'],
     frozenset(['ECFP', 'coordinates', 'conventional']): None,
     frozenset(['ECFP', 'coordinates', 'graph']): None,
     frozenset(['ECFP', 'classification', 'conventional']): None,
     frozenset(['ECFP', 'classification', 'graph']): None,
     frozenset(['CoulombMatrix', 'regression', 'conventional']): None, # ['krr_ft'],
-    frozenset(['CoulombMatrix', 'regression', 'graph']): None, # ['tf_regression_ft', 'dtnn'],
+    frozenset(['CoulombMatrix', 'regression', 'graph']): ['tf_regression_ft', 'dtnn'],
     frozenset(['CoulombMatrix', 'coordinates', 'conventional']): None,
     frozenset(['CoulombMatrix', 'coordinates', 'graph']): None,
     frozenset(['CoulombMatrix', 'classification', 'conventional']): None,
     frozenset(['CoulombMatrix', 'classification', 'graph']): None,
     frozenset(['GraphConv', 'regression', 'conventional']): None,
-    frozenset(['GraphConv', 'regression', 'graph']): None, # ['graphconvreg'],
+    frozenset(['GraphConv', 'regression', 'graph']): ['graphconvreg'],
     frozenset(['GraphConv', 'coordinates', 'conventional']): None,
     frozenset(['GraphConv', 'coordinates', 'graph']): None,
     frozenset(['GraphConv', 'classification', 'conventional']): None,
     frozenset(['GraphConv', 'classification', 'graph']): None,
     frozenset(['Weave', 'regression', 'conventional']): None,
-    frozenset(['Weave', 'regression', 'graph']): None, # ['weave_regression'],
+    frozenset(['Weave', 'regression', 'graph']): ['weave_regression'],
     frozenset(['Weave', 'coordinates', 'conventional']): None,
     frozenset(['Weave', 'coordinates', 'graph']): None,
     frozenset(['Weave', 'classification', 'conventional']): None,
     frozenset(['Weave', 'classification', 'graph']): None,
     frozenset(['MP', 'regression', 'conventional']): None,
-    frozenset(['MP', 'regression', 'graph']): None, # ['mpnn'],
+    frozenset(['MP', 'regression', 'graph']):  ['mpnn'],
     frozenset(['MP', 'coordinates', 'conventional']): None,
     frozenset(['MP', 'coordinates', 'graph']): None,
     frozenset(['MP', 'classification', 'conventional']): None,
     frozenset(['MP', 'classification', 'graph']): None,
     frozenset(['BPSymmetryFunction', 'regression', 'conventional']): None,
-    frozenset(['BPSymmetryFunction', 'regression', 'graph']): None, # ['ani'],
+    frozenset(['BPSymmetryFunction', 'regression', 'graph']): ['ani'],
     frozenset(['BPSymmetryFunction', 'coordinates', 'conventional']): None,
     frozenset(['BPSymmetryFunction', 'coordinates', 'graph']): None,
     frozenset(['BPSymmetryFunction', 'classification', 'conventional']): None,
@@ -460,13 +458,13 @@ def main():
     'qm7': None,
     'qm7b': [3, 4],
     'qm8': None,
-    'qm9': ['homo', 'lumo'],
+    'qm9': ['homo'], #, 'lumo'],
     'esol': None,
     'freesolv': None
   })
-  splits = ['Random', 'Stratified']
+  splits = ['Random']
 
-  fracs = [float(x+1)/10 for x in range(8)]
+  fracs =  [0.3] # [float(x+1)/10 for x in range(8)]
 
   metrics = dict({
     'qm7': ['MAE'],
@@ -531,7 +529,7 @@ def main():
             hyper_parameter_search=False,
             valid=False,
             test=True,
-            out_path=os.path.join(os.path.sep, '.', 'benchmark'),
+            out_path=os.path.join('.', 'benchmark'),
             load_hyper_parameters=True,
             save_hyper_parameters=False,
             save_results=True,

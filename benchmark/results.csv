@@ -1,1 +1,6 @@
 dataset,feature,mode,method,model,task,split,frac_train,frac_valid,frac_test,metric,train_score,valid_score,test_score,runtime
+qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.1,NA,0.9,MAE,0.0031175676061007004,NA,0.008372497282001092,333.1715986728668
+qm9,ECFP,regression,conventional,krr,homo,Random,0.1,NA,0.9,MAE,0.0054356527248741755,NA,0.008161834180552425,161.08677506446838
+qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.2,NA,0.8,MAE,0.0028386484354910126,NA,0.007708668989838028,816.080504655838
+qm9,ECFP,regression,conventional,krr,homo,Random,0.2,NA,0.8,MAE,0.00517438507477193,NA,0.00733017484162598,440.3991713523865
+qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.3,NA,0.7,MAE,0.0026501187066261134,NA,0.007206776596231892,1360.543289899826
