@@ -72,8 +72,9 @@ def run_benchmark(data, model, mode, tasks, metrics, transformers, n_features,
 
 def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=True):
   file_type = loaders[frozenset([dataset, featurizer])]
+  file_name = str(dataset) + str(file_type)
   data_dir = pathlib.Path(deepchem.utils.get_data_dir())
-  dataset_file = data_dir / dataset + file_type
+  dataset_file = data_dir / file_name
   if not dataset_file.exists():
     url = links[frozenset([dataset, file_type])]
     deepchem.utils.download_url(url)
@@ -89,10 +90,10 @@ def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func
     w = np.ones_like(y)
     data = deepchem.data.DiskDataset.from_numpy(X, y, w, ids=None)
   elif file_type == '.csv':
-    loader = deepchem.data.CSVLoader(tasks=tasks[dataset], smiles_field="smiles", featurizer=featurizer_funcs[frozenset([dataset, featurizer])])
+    loader = deepchem.data.CSVLoader(tasks=tasks[dataset], smiles_field="smiles", featurizer=lookup_featurizer_func[frozenset([dataset, featurizer])])
     data = loader.featurize(dataset_file)
   elif file_type == '.sdf':
-    loader = deepchem.data.SDFLoader(tasks=tasks[dataset], smiles_field="smiles", mol_field="mol", featurizer=featurizer_funcs[frozenset([dataset, featurizer])])
+    loader = deepchem.data.SDFLoader(tasks=tasks[dataset], smiles_field="smiles", mol_field="mol", featurizer=lookup_featurizer_func[frozenset([dataset, featurizer])])
     data = loader.featurize(dataset_file)
   else:
     raise ValueError
@@ -115,8 +116,13 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
       raise ValueError
   elif load_hyper_parameters:
     def hyper_parameters_lookup(dataset, model):
-      with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'rb') as f:
-        pickle.load(f)
+      file_name = str(dataset) + str(model) + '.pkl'
+      file_path = pathlib.Path('.') / 'pickle' / file_name
+      try:
+        with open(file_path, 'rb') as f:
+          return pickle.load(f)
+      except: # files doesn't exist
+        return deepchem.molnet.preset_hyper_parameters.hps[model]
   else:
     hyper_parameters_lookup = lambda dataset, model: deepchem.molnet.preset_hyper_parameters.hps[model]
 
@@ -153,9 +159,9 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
   })
 
   lookup_split_func = dict({
-    'index': deepchem.splits.IndexSplitter(),
-    'random': deepchem.splits.RandomSplitter(),
-    'stratified': deepchem.splits.SingletaskStratifiedSplitter()
+    'Index': deepchem.splits.IndexSplitter(),
+    'Random': deepchem.splits.RandomSplitter(),
+    'Stratified': deepchem.splits.SingletaskStratifiedSplitter()
   })
 
   lookup_metric_func = dict({
@@ -170,13 +176,11 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     'R2': True # maximize
   })
 
-  key = frozenset([featurizer, mode, method])
-                  if models[key] is None:
-
   for dataset in datasets:
     if tasks[dataset] is None:
       pass
     else:
+      for task in tasks[dataset]:
       print('-------------------------------------')
       print('Benchmark on dataset: %s' % dataset)
       print('-------------------------------------')
@@ -185,11 +189,11 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
       for featurizer in featurizers:
         if loaders[frozenset([dataset, featurizer])] is None:
           pass
-        elif all([models[frozenset([featurizer, mode, method])] is None for mode in modes for method in methods]):
+        elif all([models[frozenset([featurizer, mode, method])] is None for mode in modes[dataset] for method in methods]):
           pass
         else:
           print("About to featurize %s dataset using: %s" % (dataset, featurizer))
-          data = load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=reload)
+          data = load_data(dataset, featurizer, loaders, links, [task], lookup_featurizer_func, reload=reload)
           for split in splits:
             for frac in fracs:
               split_func = lookup_split_func[split]
@@ -228,8 +232,8 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                   valid_set = transformer.transform(valid_set)
                 if test_set is not None:
                   test_set =  transformer.transform(test_set)
-              split_featurized_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
-              if len(modes[dataset] == 0): 
+              split_data = dict({'train': train_set, 'valid': valid_set, 'test': test_set})
+              if len(modes[dataset]) == 0: 
                 pass
               else:
                 for mode in modes[dataset]:
@@ -240,13 +244,10 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
                     else:
                       for model in models[key]:
                         n_features = features[frozenset([dataset, featurizer, model])]
-                        if tasks[dataset] is None:
-                          pass
-                        else:
                           hyper_parameters = hyper_parameters_lookup(dataset, model)
-                          for task in tasks[dataset]:
-                            scores, hyper_parameters, runtime = run_benchmark(split_featurized_data,
+                            scores, hyper_parameters, runtime = run_benchmark(split_data,
                                                                               model,
+                                                                              mode,
                                                                               [task],
                                                                               metric_funcs,
                                                                               transformers,
@@ -334,6 +335,7 @@ def main():
     frozenset(['qm7', 'CoulombMatrix']): '.mat',
     frozenset(['qm7', 'GraphConv']): '.csv',
     frozenset(['qm7', 'Weave']): '.csv',
+    frozenset(['qm7', 'MP']): None,
     frozenset(['qm7', 'BPSymmetryFunction']): '.mat',
     frozenset(['qm7', 'Raw']): '.csv',
 
@@ -341,6 +343,7 @@ def main():
     frozenset(['qm7b', 'CoulombMatrix']): '.mat',
     frozenset(['qm7b', 'GraphConv']): None,
     frozenset(['qm7b', 'Weave']): None,
+    frozenset(['qm7b', 'MP']): None,
     frozenset(['qm7b', 'BPSymmetryFunction']): None,
     frozenset(['qm7b', 'Raw']): None,
 
@@ -530,7 +533,7 @@ def main():
             test=True,
             out_path=pathlib.Path('.') / 'benchmark' / 'molnet',
             load_hyper_parameters=True,
-            save_hyper_parameters=True,
+            save_hyper_parameters=False,
             save_results=True,
             reload=False,
             seed=SEED)
