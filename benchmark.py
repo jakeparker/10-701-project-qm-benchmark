@@ -114,7 +114,9 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     else:
       raise ValueError
   elif load_hyper_parameters:
-    hyper_parameters_lookup = lambda dataset, model: with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'rb') as f: pickle.load(f)
+    def hyper_parameters_lookup(dataset, model):
+      with open(pathlib.Path('.') / 'pickle' / dataset + model + '.pkl', 'rb') as f:
+        pickle.load(f)
   else:
     hyper_parameters_lookup = lambda dataset, model: deepchem.molnet.preset_hyper_parameters.hps[model]
 
@@ -123,26 +125,31 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     frozenset(['qm7', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
     frozenset(['qm7', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
     frozenset(['qm7', 'Weave']): deepchem.feat.WeaveFeaturizer(),
-    frozenset(['qm7', 'BPSymmetryFunction']): ,
-    frozenset(['qm7', 'Raw']): ,
+    frozenset(['qm7', 'BPSymmetryFunction']): None,
+    frozenset(['qm7', 'Raw']): None,
 
+    frozenset(['qm7b', 'ECFP']): None,
     frozenset(['qm7b', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
+    frozenset(['qm7b', 'GraphConv']): None,
+    frozenset(['qm7b', 'Weave']): None,
+    frozenset(['qm7b', 'BPSymmetryFunction']): None,
+    frozenset(['qm7b', 'Raw']): None,
 
     frozenset(['qm8', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
     frozenset(['qm8', 'CoulombMatrix']): deepchem.feat.CoulombMatrix(26),
     frozenset(['qm8', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
     frozenset(['qm8', 'Weave']): deepchem.feat.WeaveFeaturizer(),
     frozenset(['qm8', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
-    frozenset(['qm8', 'BPSymmetryFunction']): ,
-    frozenset(['qm8', 'Raw']): ,
+    frozenset(['qm8', 'BPSymmetryFunction']): None,
+    frozenset(['qm8', 'Raw']): None,
 
     frozenset(['qm9', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
     frozenset(['qm9', 'CoulombMatrix']): deepchem.feat.CoulombMatrix(29),
     frozenset(['qm9', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
     frozenset(['qm9', 'Weave']): deepchem.feat.WeaveFeaturizer(),
     frozenset(['qm9', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
-    frozenset(['qm9', 'BPSymmetryFunction']): ,
-    frozenset(['qm9', 'Raw']): ,
+    frozenset(['qm9', 'BPSymmetryFunction']): None,
+    frozenset(['qm9', 'Raw']): None,
   })
 
   lookup_split_func = dict({
@@ -163,10 +170,6 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     'R2': True # maximize
   })
 
-  transformers = [
-    deepchem.trans.NormalizationTransformer(transform_y=True, dataset=train_dataset)
-  ]
-
   for dataset in datasets:
     print('-------------------------------------')
     print('Benchmark on dataset: %s' % dataset)
@@ -174,17 +177,20 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     metric_funcs = map(deepchem.metrics.Metric, [lookup_metric_func[metric] for metric in metrics[dataset]])
     direction = lookup_direction[metrics[dataset][0]]
     for featurizer in featurizers:
-      print("About to featurize %s dataset using: %s" % (dataset, featurizer))
-      data = load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=reload)
-      for split in splits:
-        for frac in fracs:
-          split_func = lookup_split_func[split]
-          if valid and test:
-            frac_train = frac
-            frac_valid = floor((1-frac) / 2.0)
-            frac_test = ceil((1-frac) / 2.0)
-            print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
-            train_set, valid_set, test_set = split_func.train_valid_test_split(data, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
+      if loaders[frozenset([dataset, featurizer]) is None:
+        pass
+      else:
+        print("About to featurize %s dataset using: %s" % (dataset, featurizer))
+        data = load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func, reload=reload)
+        for split in splits:
+          for frac in fracs:
+            split_func = lookup_split_func[split]
+            if valid and test:
+              frac_train = frac
+              frac_valid = floor((1-frac) / 2.0)
+              frac_test = ceil((1-frac) / 2.0)
+              print('About to split %s dataset into {%d train / %d valid / %d test} sets using %s split' % (dataset, frac_train, frac_valid, frac_test, split))
+              train_set, valid_set, test_set = split_func.train_valid_test_split(data, frac_train=frac_train, frac_test=frac_test, frac_valid=frac_valid, seed=seed)
           elif valid:
             frac_train = frac
             frac_valid = 1-frac
@@ -195,7 +201,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
           elif test:
             frac_train = frac
             frac_valid = None
-            frac_test = 1-frac
+            frac_test = 0.1 # 1-frac
             print('About to split %s dataset into {%d train / %d test} sets using %s split' % (dataset, frac_train, frac_test, split))
             valid_set = None
             train_set, test_set = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
@@ -206,6 +212,7 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
             print('About to split %s dataset into {%d train} set using %s split' % (dataset, frac_train, split))
             valid_set, test_set = None
             train_set, _ = split_func.train_test_split(data, frac_train=frac_train, seed=seed)
+          transformers = [deepchem.trans.NormalizationTransformer(transform_y=True, dataset=train_set)]
           for transformer in transformers:
             if train_set is not None:
               train_set = transformer.transform(train_set)
@@ -322,7 +329,12 @@ def main():
     frozenset(['qm7', 'BPSymmetryFunction']): '.mat',
     frozenset(['qm7', 'Raw']): '.csv',
 
+    frozenset(['qm7b', 'ECFP']): None,
     frozenset(['qm7b', 'CoulombMatrix']): '.mat',
+    frozenset(['qm7b', 'GraphConv']): None,
+    frozenset(['qm7b', 'Weave']): None,
+    frozenset(['qm7b', 'BPSymmetryFunction']): None,
+    frozenset(['qm7b', 'Raw']): None,
 
     frozenset(['qm8', 'ECFP']): '.csv',
     frozenset(['qm8', 'CoulombMatrix']): '.sdf',
@@ -443,7 +455,7 @@ def main():
   })
   splits = ['Random', 'Stratified']
 
-  fracs = [float(x+1)/10 for x in range(8)]
+  fracs = [0.1]  # [float(x+1)/10 for x in range(8)]
 
   metrics = dict({
     'qm7': ['MAE'],
