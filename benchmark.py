@@ -1,5 +1,6 @@
-import time
 import os
+import time
+import pathlib
 import csv
 import pickle
 
@@ -78,6 +79,8 @@ def load_data(dataset, featurizer, loaders, links, tasks, lookup_featurizer_func
   if not os.path.exists(dataset_file):
     url = links[frozenset([dataset, file_type])]
     deepchem.utils.download_url(url)
+    if file_type == '.sdf':
+      deepchem.utils.untargz_file(os.path.join(data_dir, pathlib.Path(url).name), data_dir)
   if file_type == '.mat':
     loader = scipy.io.loadmat(dataset_file)
     if dataset == 'qm7' and featurizer == 'CoulombMatrix':
@@ -131,11 +134,11 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     frozenset(['qm7', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
     frozenset(['qm7', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
     frozenset(['qm7', 'Weave']): deepchem.feat.WeaveFeaturizer(),
-    frozenset(['qm7', 'BPSymmetryFunction']): None,
-    frozenset(['qm7', 'Raw']): None,
+    frozenset(['qm7', 'BPSymmetryFunction']): deepchem.feat.BPSymmetryFunction(23),
+    frozenset(['qm7', 'Raw']): deepchem.feat.RawFeaturizer(),
 
     frozenset(['qm7b', 'ECFP']): None,
-    frozenset(['qm7b', 'CoulombMatrix']): deepchem.feat.CoulombMatrixEig(23),
+    frozenset(['qm7b', 'CoulombMatrix']): None,
     frozenset(['qm7b', 'GraphConv']): None,
     frozenset(['qm7b', 'Weave']): None,
     frozenset(['qm7b', 'BPSymmetryFunction']): None,
@@ -146,16 +149,16 @@ def benchmark(datasets, featurizers, loaders, links, modes, methods, models, fea
     frozenset(['qm8', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
     frozenset(['qm8', 'Weave']): deepchem.feat.WeaveFeaturizer(),
     frozenset(['qm8', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
-    frozenset(['qm8', 'BPSymmetryFunction']): None,
-    frozenset(['qm8', 'Raw']): None,
+    frozenset(['qm8', 'BPSymmetryFunction']): deepchem.feat.BPSymmetryFunction(26),
+    frozenset(['qm8', 'Raw']): deepchem.feat.RawFeaturizer(),
 
     frozenset(['qm9', 'ECFP']): deepchem.feat.CircularFingerprint(size=1024),
     frozenset(['qm9', 'CoulombMatrix']): deepchem.feat.CoulombMatrix(29),
     frozenset(['qm9', 'GraphConv']): deepchem.feat.ConvMolFeaturizer(),
     frozenset(['qm9', 'Weave']): deepchem.feat.WeaveFeaturizer(),
     frozenset(['qm9', 'MP']): deepchem.feat.WeaveFeaturizer(graph_distance=False, explicit_H=True),
-    frozenset(['qm9', 'BPSymmetryFunction']): None,
-    frozenset(['qm9', 'Raw']): None,
+    frozenset(['qm9', 'BPSymmetryFunction']): deepchem.feat.BPSymmetryFunction(29),
+    frozenset(['qm9', 'Raw']): deepchem.feat.RawFeaturizer(),
   })
 
   lookup_split_func = dict({
