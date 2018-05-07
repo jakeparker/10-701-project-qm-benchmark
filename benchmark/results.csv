@@ -10,3 +10,5 @@ qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.5,NA,0.5,mae_score,
 qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.6,NA,0.4,mae_score,0.0024198312395958886,NA,0.006540887867111194,1669.1855735778809
 qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.7,NA,0.30000000000000004,mae_score,0.0023518377394437556,NA,0.006386579025036525,1988.4927306175232
 qm9,ECFP,regression,conventional,rf_regression,homo,Random,0.8,NA,0.19999999999999996,mae_score,0.002302955719468287,NA,0.006243680496883808,2444.233003616333
+qm9,ECFP,regression,conventional,rf_regression,lumo,Random,0.5,NA,0.5,mae_score,0.0027813378803579103,NA,0.0075083961519772195,1178.2787992954254
+qm9,ECFP,regression,conventional,rf_regression,lumo,Random,0.6,NA,0.4,mae_score,0.0027205675064012292,NA,0.007275047373586617,1511.402184009552
