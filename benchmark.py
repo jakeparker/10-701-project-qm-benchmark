@@ -381,7 +381,7 @@ def main():
     frozenset(['Raw', 'regression', 'graph']): ['textcnn_regression'],
     frozenset(['Raw', 'classification', 'conventional']): None,
     frozenset(['Raw', 'classification', 'graph']): None,
-    frozenset(['ECFP', 'regression', 'conventional']): ['krr'], # ['rf_regression', 'krr'],
+    frozenset(['ECFP', 'regression', 'conventional']): ['rf_regression'], # ['rf_regression', 'krr'],
     frozenset(['ECFP', 'regression', 'graph']): ['tf_regression'],
     frozenset(['ECFP', 'classification', 'conventional']): None,
     frozenset(['ECFP', 'classification', 'graph']): None,
@@ -456,7 +456,7 @@ def main():
   })
   splits = ['Random']
 
-  fracs = [0.4] # [float(x+1)/10 for x in range(3, 8)] # [float(x+1)/10 for x in range(8)]
+  fracs = [float(x+1)/10 for x in range(4, 8)] # [float(x+1)/10 for x in range(8)]
 
   metrics = dict({
     'qm7': ['MAE'],
